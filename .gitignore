@@ -3,6 +3,7 @@ test10M.dat
 modules/__pycache__
 no_sync
 venv
+init.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

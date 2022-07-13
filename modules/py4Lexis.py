@@ -39,17 +39,18 @@ class LexisSession:
         delete_dataset_by_id(internal_id, access, project)
             Deletes a dataset by a specified internalID.
         """
-    def __init__(self, username, pwd):
+    def __init__(self, username, pwd, keycloak_url, realm, client_id, client_secret, ddi_endpoint_url, zonename,
+                 api_path):
         self.username = username
         self.pwd = pwd
 
-        self.KEYCLOAK_URL = 'https://aai.lexis.tech'
-        self.REALM = 'LEXIS_AAI'
-        self.CLIENT_ID = ''
-        self.CLIENT_SECRET = ''
-        self.DDI_ENDPOINT_URL = "https://staging-api.msad.it4i.lexis.tech/transfer/"
-        self.ZONENAME = 'IT4ILexisZone'
-        self.API_PATH = 'https://api.lexis.tech/api/v0.2/'
+        self.KEYCLOAK_URL = keycloak_url
+        self.REALM = realm
+        self.CLIENT_ID = client_id
+        self.CLIENT_SECRET = client_secret
+        self.DDI_ENDPOINT_URL = ddi_endpoint_url
+        self.ZONENAME = zonename
+        self.API_PATH = api_path
 
         self.keycloak_openid = None
         self.REFRESH_TOKEN = None
