@@ -20,6 +20,13 @@ class LexisSession:
             LEXIS username
         pwd : str
             LEXIS password
+        keycloak_url : str
+        realm : str
+        client_id : str
+        client_secret : str
+        ddi_endpoint_url : str
+        zonename : str
+        api_path : str
 
         Methods
         -------
