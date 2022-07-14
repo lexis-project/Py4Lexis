@@ -26,28 +26,31 @@ class LexisSession:
         client_secret : str
         ddi_endpoint_url : str
         zonename : str
-        api_path : str
 
         Methods
         -------
         get_token()
             Returns the user's keycloak token.
+
         create_dataset(access, project, push_method=None, path=None, contributor=None, creator=None,
                         owner=None, publicationYear=None, publisher=None, resourceType=None, title=None)
             Create an empty dataset with specified attributes.
+
         tus_client_uploader(access, project, filename, file_path=None, path=None, contributor=None, creator=None,
                             owner=None, publicationYear=None, publisher=None, resourceType=None, title=None,
                             expand=None, encryption=None)
             Create a dataset and upload a data by TUS client.
+
         get_dataset_status()
             Prints a table of the datasets' staging states.
+
         get_all_dataset()
             Prints a table of the all existing datasets.
+
         delete_dataset_by_id(internal_id, access, project)
             Deletes a dataset by a specified internalID.
         """
-    def __init__(self, username, pwd, keycloak_url, realm, client_id, client_secret, ddi_endpoint_url, zonename,
-                 api_path):
+    def __init__(self, username, pwd, keycloak_url, realm, client_id, client_secret, ddi_endpoint_url, zonename):
         self.username = username
         self.pwd = pwd
 
@@ -57,7 +60,19 @@ class LexisSession:
         self.CLIENT_SECRET = client_secret
         self.DDI_ENDPOINT_URL = ddi_endpoint_url
         self.ZONENAME = zonename
-        self.API_PATH = api_path
+
+        # create api url path
+        if ddi_endpoint_url[-1] == '/':
+            self.API_PATH = ddi_endpoint_url + 'api/v0.2/'
+        else:
+            self.API_PATH = ddi_endpoint_url + '/api/v0.2/'
+
+        # check url if valid
+        try:
+            response = req.get(self.API_PATH)
+            print("API URL is successfully initialised!")
+        except req.ConnectionError as exception:
+            print("Initialisation of API URL failed! Wrong DDI_ENDPOINT_URL!")
 
         self.keycloak_openid = None
         self.REFRESH_TOKEN = None
@@ -120,7 +135,7 @@ class LexisSession:
             access : str
                 One of the access types [public, project, user]
             project: str
-                Name of the project
+                Project's short name.
             push_method: str, optional
                 By default: push_mehtod = "empty"
             path: str, optional
@@ -193,7 +208,7 @@ class LexisSession:
             access : str
                 One of the access types [public, project, user]
             project: str
-                Name of the project
+                Project's short name.
             filename: str
                 Name of a file to be uploaded
             file_path: str
@@ -377,7 +392,7 @@ class LexisSession:
             access : str
                 One of the access types [public, project, user]
             project: str
-                Name of the project
+                Project's short name.
 
             Return
             ----------
