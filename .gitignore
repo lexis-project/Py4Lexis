@@ -3,7 +3,6 @@ test10M.dat
 py4lexis/__pycache__
 no_sync
 venv
-py4lexis/init.py
 config.toml
 last_error.html
 git.txt
