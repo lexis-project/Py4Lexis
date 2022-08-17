@@ -1,8 +1,7 @@
 from keycloak import KeycloakOpenID
-from irods.session import iRODSSession
 import requests as req
 from datetime import date, datetime
-from modules.tus_client_py4Lexis import TusClient
+from py4lexis.tus_client_py4Lexis import TusClient
 import json
 
 # Making ASCII table
@@ -50,7 +49,7 @@ class LexisSession:
         delete_dataset_by_id(internal_id, access, project)
             Deletes a dataset by a specified internalID.
         """
-    def __init__(self, username, pwd, keycloak_url, realm, client_id, client_secret, ddi_endpoint_url, zonename):
+    def __init__(self, username, pwd, keycloak_url, realm, client_id, client_secret, url, zonename):
         self.username = username
         self.pwd = pwd
 
@@ -58,14 +57,15 @@ class LexisSession:
         self.REALM = realm
         self.CLIENT_ID = client_id
         self.CLIENT_SECRET = client_secret
-        self.DDI_ENDPOINT_URL = ddi_endpoint_url
+        self.DDI_ENDPOINT_URL = url
         self.ZONENAME = zonename
 
         # create api url path
-        if ddi_endpoint_url[-1] == '/':
-            self.API_PATH = ddi_endpoint_url + 'api/v0.2/'
-        else:
-            self.API_PATH = ddi_endpoint_url + '/api/v0.2/'
+        if not url[-1] == '/':
+            url = url + '/'
+
+        self.DDI_ENDPOINT_URL = url
+        self.API_PATH = url + 'api/v0.2/'
 
         # check url if valid
         try:
@@ -92,9 +92,15 @@ class LexisSession:
                                               realm_name=self.REALM,
                                               client_id=self.CLIENT_ID,
                                               client_secret_key=self.CLIENT_SECRET)
+
+        # Get WellKnow
+        config_well_known = self.keycloak_openid.well_know()
+
+        # Get tokens
         token = self.keycloak_openid.token(self.username, self.pwd, scope=['openid'])
         self.REFRESH_TOKEN = token['refresh_token']
         self.TOKEN = token['access_token']
+        print('Keycloak tokens are successfully initialised!')
 
     def get_token(self):
         """
@@ -262,7 +268,7 @@ class LexisSession:
             encryption = "no"
 
         print("Initialising TUS client...")
-        tmp_client = TusClient(self.DDI_ENDPOINT_URL + 'upload/',
+        tmp_client = TusClient(self.API_PATH + 'dataset/upload/',
                                headers=self.API_HEADER)
         print("Initialising TUS upload...")
 

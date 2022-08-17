@@ -1,9 +1,12 @@
 test10M.dat
 .idea
-modules/__pycache__
+py4lexis/__pycache__
 no_sync
 venv
-init.py
+py4lexis/init.py
+config.toml
+last_error.html
+git.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
