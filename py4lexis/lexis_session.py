@@ -268,7 +268,7 @@ class LexisSession:
             encryption = "no"
 
         print("Initialising TUS client...")
-        tmp_client = TusClient(self.API_PATH + 'dataset/upload/',
+        tmp_client = TusClient(self.API_PATH + 'transfer/upload/',
                                headers=self.API_HEADER)
         print("Initialising TUS upload...")
 
@@ -302,7 +302,7 @@ class LexisSession:
             Prints a table of the datasets' staging states.
         """
         print("Sending request...")
-        response = req.get(self.DDI_ENDPOINT_URL + 'status', headers={'Authorization': 'Bearer ' + self.TOKEN})
+        response = req.get(self.API_PATH + '/transfer/status', headers={'Authorization': 'Bearer ' + self.TOKEN})
         tmp_resp = response.content.decode('utf8')
         try:
             print("Formatting response into ASCII table...")
