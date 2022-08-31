@@ -1,7 +1,7 @@
 """
     TUS Client derived from tuspy tus client.
 """
-from modules.uploader_py4Lexis import Uploader
+from py4lexis.uploader_py4Lexis import Uploader
 
 
 class TusClient(object):

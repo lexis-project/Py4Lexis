@@ -1,8 +1,7 @@
 from keycloak import KeycloakOpenID
-from irods.session import iRODSSession
 import requests as req
 from datetime import date, datetime
-from modules.tus_client_py4Lexis import TusClient
+from py4lexis.tus_client_py4Lexis import TusClient
 import json
 
 # Making ASCII table
@@ -26,28 +25,31 @@ class LexisSession:
         client_secret : str
         ddi_endpoint_url : str
         zonename : str
-        api_path : str
 
         Methods
         -------
         get_token()
             Returns the user's keycloak token.
+
         create_dataset(access, project, push_method=None, path=None, contributor=None, creator=None,
                         owner=None, publicationYear=None, publisher=None, resourceType=None, title=None)
             Create an empty dataset with specified attributes.
+
         tus_client_uploader(access, project, filename, file_path=None, path=None, contributor=None, creator=None,
                             owner=None, publicationYear=None, publisher=None, resourceType=None, title=None,
                             expand=None, encryption=None)
             Create a dataset and upload a data by TUS client.
+
         get_dataset_status()
             Prints a table of the datasets' staging states.
+
         get_all_dataset()
             Prints a table of the all existing datasets.
+
         delete_dataset_by_id(internal_id, access, project)
             Deletes a dataset by a specified internalID.
         """
-    def __init__(self, username, pwd, keycloak_url, realm, client_id, client_secret, ddi_endpoint_url, zonename,
-                 api_path):
+    def __init__(self, username, pwd, keycloak_url, realm, client_id, client_secret, url, zonename):
         self.username = username
         self.pwd = pwd
 
@@ -55,9 +57,22 @@ class LexisSession:
         self.REALM = realm
         self.CLIENT_ID = client_id
         self.CLIENT_SECRET = client_secret
-        self.DDI_ENDPOINT_URL = ddi_endpoint_url
+        self.DDI_ENDPOINT_URL = url
         self.ZONENAME = zonename
-        self.API_PATH = api_path
+
+        # create api url path
+        if not url[-1] == '/':
+            url = url + '/'
+
+        self.DDI_ENDPOINT_URL = url
+        self.API_PATH = url + 'api/v0.2/'
+
+        # check url if valid
+        try:
+            response = req.get(self.API_PATH)
+            print("API URL is successfully initialised!")
+        except req.ConnectionError as exception:
+            print("Initialisation of API URL failed! Wrong DDI_ENDPOINT_URL!")
 
         self.keycloak_openid = None
         self.REFRESH_TOKEN = None
@@ -77,9 +92,15 @@ class LexisSession:
                                               realm_name=self.REALM,
                                               client_id=self.CLIENT_ID,
                                               client_secret_key=self.CLIENT_SECRET)
+
+        # Get WellKnow
+        config_well_known = self.keycloak_openid.well_know()
+
+        # Get tokens
         token = self.keycloak_openid.token(self.username, self.pwd, scope=['openid'])
         self.REFRESH_TOKEN = token['refresh_token']
         self.TOKEN = token['access_token']
+        print('Keycloak tokens are successfully initialised!')
 
     def get_token(self):
         """
@@ -120,7 +141,7 @@ class LexisSession:
             access : str
                 One of the access types [public, project, user]
             project: str
-                Name of the project
+                Project's short name.
             push_method: str, optional
                 By default: push_mehtod = "empty"
             path: str, optional
@@ -193,7 +214,7 @@ class LexisSession:
             access : str
                 One of the access types [public, project, user]
             project: str
-                Name of the project
+                Project's short name.
             filename: str
                 Name of a file to be uploaded
             file_path: str
@@ -247,7 +268,7 @@ class LexisSession:
             encryption = "no"
 
         print("Initialising TUS client...")
-        tmp_client = TusClient(self.DDI_ENDPOINT_URL + 'upload/',
+        tmp_client = TusClient(self.API_PATH + 'transfer/upload/',
                                headers=self.API_HEADER)
         print("Initialising TUS upload...")
 
@@ -281,7 +302,7 @@ class LexisSession:
             Prints a table of the datasets' staging states.
         """
         print("Sending request...")
-        response = req.get(self.DDI_ENDPOINT_URL + 'status', headers={'Authorization': 'Bearer ' + self.TOKEN})
+        response = req.get(self.API_PATH + '/transfer/status', headers={'Authorization': 'Bearer ' + self.TOKEN})
         tmp_resp = response.content.decode('utf8')
         try:
             print("Formatting response into ASCII table...")
@@ -377,7 +398,7 @@ class LexisSession:
             access : str
                 One of the access types [public, project, user]
             project: str
-                Name of the project
+                Project's short name.
 
             Return
             ----------
