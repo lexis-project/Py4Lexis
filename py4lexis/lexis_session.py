@@ -2,6 +2,7 @@ from keycloak import KeycloakOpenID
 import requests as req
 from datetime import date, datetime
 from py4lexis.tus_client_py4Lexis import TusClient
+from tusclient import exceptions
 import json
 
 # Making ASCII table
@@ -268,34 +269,37 @@ class LexisSession:
             encryption = "no"
 
         print("Initialising TUS client...")
-        tmp_client = TusClient(self.API_PATH + 'transfer/upload/',
-                               headers=self.API_HEADER)
-        print("Initialising TUS upload...")
+        try:
+            tmp_client = TusClient(self.API_PATH + 'transfer/upload/',
+                                headers=self.API_HEADER)
+            print("Initialising TUS upload...")
 
-        uploader = tmp_client.uploader(file_path + filename, chunk_size=1048576,
-                                       metadata={
-                                           'path': path,
-                                           'zone': self.ZONENAME,
-                                           'filename': filename,
-                                           'user': self.username,
-                                           'project': project,
-                                           'access': access,
-                                           'expand': expand,
-                                           'encryption': encryption,
-                                           'metadata': json.dumps(
-                                               {
-                                                   'contributor': contributor,
-                                                   'creator': creator,
-                                                   'owner': owner,
-                                                   'publicationYear': publicationYear,
-                                                   'publisher': publisher,
-                                                   'resourceType': resourceType,
-                                                   'title': title
-                                               })
-                                           }
-                                       )
-        print("Starting TUS upload...")
-        uploader.upload()
+            uploader = tmp_client.uploader(file_path + filename, chunk_size=1048576,
+                                        metadata={
+                                            'path': path,
+                                            'zone': self.ZONENAME,
+                                            'filename': filename,
+                                            'user': self.username,
+                                            'project': project,
+                                            'access': access,
+                                            'expand': expand,
+                                            'encryption': encryption,
+                                            'metadata': json.dumps(
+                                                {
+                                                    'contributor': contributor,
+                                                    'creator': creator,
+                                                    'owner': owner,
+                                                    'publicationYear': publicationYear,
+                                                    'publisher': publisher,
+                                                    'resourceType': resourceType,
+                                                    'title': title
+                                                })
+                                            }
+                                        )
+            print("Starting TUS upload...")  
+            uploader.upload()
+        except exceptions.TusCommunicationError as te:
+            print("Upload error: {0}".format(te.response_content))
 
     def get_dataset_status(self):
         """
