@@ -1,41 +1,45 @@
-# Py4Lexis
+# py4lexis
 
-Py4Lexis provides functions to manage datasets in the LEXIS server. 
+Package py4lexis provides functions to manage datasets within the LEXIS platform. 
 Uploading datasets' files is performed by tuspy Python package, i.e. by TUS Client.
 
 ## Install
-1. Download the repository.
-2. Copy retrieved **config.toml** file into the downloaded repository.
-3. In the repository folder, open the terminal and type: 
-        
-        python3 venv -m venv
-        source venv/bin/activate
-        pip install -r requirements.txt
-4. Initialise LEXIS API session as below. 
+We recommend to use virtual environment, e.g.:
+      
+      python -m venv ./venv
+
+With activated virtual environment, type:
+
+      python -m pip install py4lexis
 
 ## Initialise the connection
 To initialise the connection with the LEXIS server, use:
 
-    from py4Lexis.init as init_api_session
-    p4l_api = init_api_session()
+    from py4lexis.session import LexisSession
+    p4l = LexisSession(PATH_TO_CONFIG_TOML, PATH_TO_LOG_FILE)
 
-If you have not activated the virtual environment, open the terminal and type:
+where **PATH_TO_CONFIG_TOML** is **path_to_your/config.toml** sent by LEXIS administrator, and **PATH_TO_LOG_FILE** is **path_to_your/log_file.toml**.
+By default, **PATH_TO_LOG_FILE = './lexis_logs.log'**.
 
-        source venv/bin/activate
+## Classes to manage datasets
+There are two possible ways to manage datasets in py4lexis package. The first is to use
 
-Then, you can initialise connection as above.
-    
-## Available functions
-Assume that we initialise connection like above, i.e. we have defined **p4l_api** object.
-### Refresh Keycloak token
-To refresh keycloak token, use:
+      from py4lexis.ddi.datasets import Datasets
+      datasets = Datasets(LEXIS_SESSION)
 
-    p4l_api.refresh_token()
-    
+and the second is to use
+
+      from py4lexis.cli.datasets import DatasetsCLI
+      datasets = DatasetsCLI(LEXIS_SESSION)
+
+Both provide same functions, but the **DatasetsCLI** acts in interactive mode with prints to the console. Moreover, using **DatasetsCLI** no return values are passed from
+the existing functions.
+
+## Functions in Datasets (DatasetsCLI) class     
 ### Create dataset
 
-    p4l_api.create_dataset(access, project, push_method=None, path=None, contributor=None, creator=None,
-                           owner=None, publicationYear=None, publisher=None, resourceType=None, title=None)
+    datasets.create_dataset(access, project, push_method=None, path=None, contributor=None, creator=None,
+                            owner=None, publicationYear=None, publisher=None, resourceType=None, title=None)
 
 
    Creates an empty dataset with specified attributes.
@@ -54,15 +58,16 @@ To refresh keycloak token, use:
    * title: string (optional). By default: "UNTITLED_Dataset_" + timestamp
 
    #### Return
-   Prints a response content of the request.
+   * content : string. Content of HTTP request in JSON.
+   * req_status : integer. Status code of HTTP request.
                           
 ### Upload a file
 
-    p4l_api.tus_client_uploader(access, project, filename, file_path=None, path=None, contributor=None, creator=None,
-                                owner=None, publicationYear=None, publisher=None, resourceType=None, title=None,
-                                expand=None, encryption=None)
+    datasets.tus_client_uploader(access, project, filename, file_path=None, path=None, contributor=None, creator=None,
+                                 owner=None, publicationYear=None, publisher=None, resourceType=None, title=None,
+                                 expand=None, encryption=None)
 
-   Creates a dataset and upload a data by TUS client.
+   Upload a data by TUS client to the specified dataset.
 
    #### Parameters
    * access : string. One of the access types [public, project, user]
@@ -80,29 +85,29 @@ To refresh keycloak token, use:
    * expand: string (optional). By default: "no"
    * encryption: string (optional). By default: "no"
 
-   #### Return
-   Prints a progress bar of the processing upload.
 
 ### Check datasets status
 To check datasets status, use:
 
-    p4l_api.get_dataset_status()
+    datasets.get_dataset_status()
 
    #### Return
-   Prints a table of existing datasets with their status.
+   * content : string. Content of HTTP request in JSON.
+   * req_status : integer. Status code of HTTP request.
 
 ### Get existing datasets
 To print basic information of all existing datasets, use:
 
-    p4l_api.get_all_datasets()
+    datasets.get_all_datasets()
     
    #### Return
-   Prints a table of existing datasets with basic information.
+   * content : string. Content of HTTP request in JSON.
+   * req_status : integer. Status code of HTTP request.
 
 ### Delete a dataset
 To delete an existing dataset, use:
 
-    p4l_api.delete_dataset_by_id(internal_id, access, project)
+    datasets.delete_dataset_by_id(internal_id, access, project)
 
    #### Parameters
    * internal_id: string. InternalID of the dataset. InternalID could be retrieved e.g. by command above.
@@ -110,4 +115,5 @@ To delete an existing dataset, use:
    * project: string. Project's short name.
 
    #### Return
-   Prints a response content of the request.
+   * content : string. Content of HTTP request in JSON.
+   * req_status : integer. Status code of HTTP request.

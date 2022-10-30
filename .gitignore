@@ -1,6 +1,6 @@
 test10M.dat
 .idea
-py4lexis/__pycache__
+src/py4lexis/__pycache__
 no_sync
 venv
 config.toml
