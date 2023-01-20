@@ -298,7 +298,7 @@ class Datasets:
         req_status = None
         status = True
         while not has_content:
-            response = req.post(self.session.API_PATH + 'dataset/search/metadata/',
+            response = req.post(self.session.API_PATH + 'dataset/search/metadata',
                                 headers=self.session.API_HEADER,
                                 json={})
             content = response.json()
