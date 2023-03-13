@@ -3,9 +3,10 @@
 import requests as req
 from datetime import date, datetime
 from py4lexis.ddi.tus_client import TusClient
+from py4lexis.ecxeptions import Py4LexisException
 from tusclient import exceptions
 import json
-
+import time
 
 class Datasets:
     def __init__(self, session):
@@ -377,3 +378,122 @@ class Datasets:
             print("Some errors occurred. See log file, please.")
 
         return content, req_status
+    
+
+
+    def _ddi_submit_download(self, dataset_id, zone, access, project, path):
+        download_body = {
+            'zone': zone,
+            'access': access,
+            'project': project,
+            'dataset_id': dataset_id,
+            'path': path
+        }
+        
+        res = req.post(url=self.session.API_PATH + 'transfer/download',
+                       headers=self.session.API_HEADER,
+                        json=download_body)
+        
+        if res.status_code != 200:
+            self.session.logging.error(f"POST -- {self.session.API_PATH}transfer/download -- ID:{dataset_id} -- FAILED")
+            raise Py4LexisException(res.content)
+        else:
+            self.session.logging.debug(f"POST -- {self.session.API_PATH}transfer/download -- ID:{dataset_id} -- OK")
+            return res.json()['requestId']
+
+
+
+    def _ddi_get_download_status(self, request_id):
+        res = req.get(url=self.session.API_PATH + 'transfer/status/' + request_id, headers=self.session.API_HEADER)
+        if res.status_code != 200:
+            self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/status -- ID:{request_id} -- FAILED")
+            raise Py4LexisException(res.content)
+        else:
+            self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- ID:{request_id} -- ok")
+            return res.json()
+
+
+
+    def _ddi_download_dataset(self, request_id, destination_file):
+        with req.get(url=self.session.API_PATH + 'transfer/download/' + request_id,
+                        headers=self.session.API_HEADER,
+                        stream=True) as request:
+            
+            if request.status_code != 200:
+                self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/download -- ID:{request_id} -- FAILED")
+                raise Py4LexisException(request.content)
+            
+            # File ready, start downloading
+            total_length = request.headers.get('content-length')
+            self.session.logging.debug(f"STARTING DOWNLOADING -- OK")
+            try:
+                with open(destination_file, "wb") as f:
+                    if total_length is None: # no content length header
+                        f.write(request.content)
+                    else:
+                        dl = 0
+                        total_length = int(total_length)
+                        for data in request.iter_content(chunk_size=4096):
+                            dl += len(data)
+                            f.write(data)
+            except IOError as ioe:
+                self.session.logging.error(f"DOWNLOAD -- FAILED")
+                raise Py4LexisException(str(ioe))
+        
+        self.session.logging.debug(f"DOWNLOAD -- OK")
+
+
+
+    def download_dataset(self, acccess, project, internal_id, zone, path = "", destination_file = "./download.tar.gz"):
+        """
+            Downloads dataset by a specified informtions as access, zone, project, Interna_Id.
+            It is possible to specify by path parameter which exact file in the dataset should be downloaded.
+            It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
+            
+            Parameters
+            ----------
+            access : str
+                One of the access types [public, project, user]
+            project: str
+                Project's short name.
+            internal_id: str
+                InternalID of the dataset
+            zone: str
+                iRods zone name
+            path: str, optional
+                Path to exact folde, by default  = ""
+            destination_file: str, optional
+                Paht to the local destination foler, by default "./download.tar.gz"
+
+
+            Return
+            ------
+            None
+        """
+
+        down_request = self._ddi_submit_download(dataset_id=internal_id, 
+                            zone=zone, access=acccess, project=project, path=path)
+
+        # Wait until it is ready
+        retries_max = 200
+        retries = 0
+        delay = 5 # secs
+        while retries < retries_max:
+            status = self._ddi_get_download_status(request_id=down_request)
+
+            if status['task_state'] == 'SUCCESS':
+                # Download file
+                self._ddi_download_dataset(request_id=down_request, destination_file=destination_file)
+                break
+
+            if status['task_state'] == 'ERROR' or status['task_state'] == "FAILURE":
+                self.session.logging.error('DOWNLOAD --  request failed: {0} -- FAILED'.format(status['task_result']))
+                raise Py4LexisException(status['task_result'])
+
+            self.session.logging.debug(f"DOWNLOAD -- waiting for download to become ready -- remaining retries {retries} -- OK")    
+
+            # Refresh
+            self.session.token_refresh()
+            retries = retries + 1
+            time.sleep(delay)
+        
