@@ -414,7 +414,7 @@ class Datasets:
 
 
 
-    def _ddi_download_dataset(self, request_id, destination_file):
+    def _ddi_download_dataset(self, request_id, destination_file, progress_func = None):
         with req.get(url=self.session.API_PATH + 'transfer/download/' + request_id,
                         headers=self.session.API_HEADER,
                         stream=True) as request:
@@ -433,9 +433,17 @@ class Datasets:
                     else:
                         dl = 0
                         total_length = int(total_length)
-                        for data in request.iter_content(chunk_size=4096):
+                        current = 0
+                        chunk_size = 4096
+                        for data in request.iter_content(chunk_size=chunk_size):
+                            if progress_func:
+                                progress_func(current, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
+                                current += chunk_size
                             dl += len(data)
                             f.write(data)
+                        if progress_func:
+                            progress_func(total_length, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
+                        
             except IOError as ioe:
                 self.session.logging.error(f"DOWNLOAD -- FAILED")
                 raise Py4LexisException(str(ioe))

@@ -2,7 +2,9 @@
 
 import json
 from py4lexis.ddi.datasets import Datasets
-
+from py4lexis.ecxeptions import Py4LexisException
+from py4lexis.utils import printProgressBar
+import time
 # Making ASCII table
 # Source: https://stackoverflow.com/questions/5909873/how-can-i-pretty-print-ascii-tables-with-python
 from tabulate import tabulate
@@ -225,3 +227,63 @@ class DatasetsCLI:
             print(f"Some error occurred. See log file, please.")
             print(f"Printing HTTP request content:")
             print(json.dumps(content, indent=4))
+
+
+    def download_dataset(self, acccess, project, internal_id, zone, path = "", destination_file = "./download.tar.gz"):
+        """
+            Downloads dataset by a specified informtions as access, zone, project, Interna_Id.
+            It is possible to specify by path parameter which exact file in the dataset should be downloaded.
+            It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
+            
+            Parameters
+            ----------
+            access : str
+                One of the access types [public, project, user]
+            project: str
+                Project's short name.
+            internal_id: str
+                InternalID of the dataset
+            zone: str
+                iRods zone name
+            path: str, optional
+                Path to exact folde, by default  = ""
+            destination_file: str, optional
+                Paht to the local destination foler, by default "./download.tar.gz"
+
+            Return
+            ------
+            None
+        """
+
+        print("Submitting download request on server")
+        down_request = self.datasets._ddi_submit_download(dataset_id=internal_id, 
+                            zone=zone, access=acccess, project=project, path=path)
+        print("Download submitted")
+
+        # Wait until it is ready
+        retries_max = 200
+        retries = 0
+        delay = 5 # secs
+        print("Checking the status of download request")
+        while retries < retries_max:
+            status = self.datasets._ddi_get_download_status(request_id=down_request)
+
+            if status['task_state'] == 'SUCCESS':
+                # Download file
+                print("Starting downloading the dataset")
+                self.datasets._ddi_download_dataset(request_id=down_request, destination_file=destination_file, progress_func=printProgressBar)
+                break
+
+            if status['task_state'] == 'ERROR' or status['task_state'] == "FAILURE":
+                self.session.logging.error('DOWNLOAD --  request failed: {0} -- FAILED'.format(status['task_result']))
+                print("Download request ended with FAILURE status")
+                raise Py4LexisException(status['task_result'])
+
+            self.session.logging.debug(f"DOWNLOAD -- waiting for download to become ready -- remaining retries {retries} -- OK")    
+            print(f'Download request not ready yet, {retries_max - retries} retries remaining')
+            # Refresh
+            self.session.token_refresh()
+            retries = retries + 1
+            time.sleep(delay)
+        print("Dataset downloaded")
+
