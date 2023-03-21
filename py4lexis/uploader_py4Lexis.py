@@ -230,9 +230,6 @@ class Uploader(object):
         resp = requests.post(self.client.url, headers=headers)
         # --------------------------------------------------------------------------------------------------------------
         url = resp.headers.get("location")
-        # BLBY GET VOLE
-        #tmp = url[39:]
-        # url = url.replace('https://portal.msad.it4i.lexis.tech:8443/auth/callback', 'https://api.lexis.tech')
         # --------------------------------------------------------------------------------------------------------------
         if url is None:
             msg = 'Attempt to retrieve create file url with status {}'.format(resp.status_code)
