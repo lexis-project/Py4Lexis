@@ -5,12 +5,16 @@ Uploading datasets' files is performed by tuspy Python package, i.e. by TUS Clie
 
 ## Install
 1. Download the repository.
-2. Create a virtual environment, e.g.:
+2. Create a virtual environment within the Py4Lexis repository:
       
       python -m venv ./venv
    
-3. With activated virtual environment, type:
+3. Activate the virtual environment:
+      
+      source path/to/Py4Lexis/.venv/bin/activate
+
+4. Install the package using:
 
       python -m pip install py4lexis
     
-4. Proceed to the https://docs.lexis.tech/ for further information how to intialise connection and use built-in methods.
+5. Proceed to the https://docs.lexis.tech/ for further information how to intialise connection and use built-in methods.
