@@ -2,7 +2,7 @@
 
 import json
 from py4lexis.ddi.datasets import Datasets
-from py4lexis.ecxeptions import Py4LexisException
+from src.py4lexis.exceptions import Py4LexisException
 from py4lexis.utils import printProgressBar
 import time
 # Making ASCII table
