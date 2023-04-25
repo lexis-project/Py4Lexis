@@ -1,11 +1,15 @@
 test10M.dat
 .idea
-py4lexis/__pycache__
+src/py4lexis/__pycache__
 no_sync
 venv
-config.toml
+/home/ladislav/python/Py4Lexis/py4lexis/__pycache__config.toml
 last_error.html
 git.txt
+py4lexis.rst
+config.toml
+py4lexis/__pycache__
+test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
