@@ -13,6 +13,10 @@ py4lexis/__pycache__
 test.py
 .vscode/
 
+/.vscode
+/test
+*.rst
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
