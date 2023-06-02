@@ -3,7 +3,7 @@
 import requests as req
 from datetime import date, datetime
 from py4lexis.ddi.tus_client import TusClient
-from src.py4lexis.exceptions import Py4LexisException
+from py4lexis.exceptions import Py4LexisException
 from tusclient import exceptions
 import json
 import time
