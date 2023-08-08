@@ -85,7 +85,8 @@ class LexisSession:
 
         # Prepare requests header
         if self.TOKEN is not None:
-            self.API_HEADER = {'Authorization': 'Bearer ' + self.TOKEN}
+            self.API_HEADER = {'Authorization': 'Bearer ' + self.TOKEN,
+                               'Content-type': 'application/json'}
             self.logging.debug(f"Set api_header -- OK")
 
         else:
@@ -106,7 +107,7 @@ class LexisSession:
                                                   client_secret_key=client_secret)
 
             # Get WellKnow
-            config_well_known = self.keycloak_openid.well_know()
+            config_well_known = self.keycloak_openid.well_known()
 
             # Get tokens
             token = self.keycloak_openid.token(self.username, pwd, scope=['openid'])

@@ -13,8 +13,8 @@ Uploading datasets' files is performed by tuspy Python package, i.e. by TUS Clie
       
       source path/to/Py4Lexis/.venv/bin/activate
 
-4. Install the package using:
+4. Install the package from root of py4lexis repository:
 
-      python -m pip install py4lexis
+      python -m pip install .
     
 5. Proceed to the https://docs.lexis.tech/ for further information how to intialise connection and use built-in methods.

@@ -3,7 +3,7 @@
 import requests as req
 from datetime import date, datetime
 from py4lexis.ddi.tus_client import TusClient
-from src.py4lexis.exceptions import Py4LexisException
+from py4lexis.exceptions import Py4LexisException
 from tusclient import exceptions
 import json
 import time
@@ -184,7 +184,7 @@ class Datasets:
         if path is None:
             path = ""
         if file_path is None:
-            file_path = "/"
+            file_path = "./"
         if contributor is None:
             contributor = ["NONAME contributor"]
         if creator is None:
@@ -211,7 +211,7 @@ class Datasets:
                                    headers=self.session.API_HEADER)
             self.session.logging.debug(f"TUS client initialised -- OK")
 
-            uploader = tus_client.uploader(file_path + filename, chunk_size=1048576,
+            uploader = tus_client.uploader(file_path=file_path + filename, chunk_size=1048576,
                                            metadata={
                                                'path': path,
                                                'zone': self.session.ZONENAME,
