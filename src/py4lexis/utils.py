@@ -9,9 +9,9 @@ def printProgressBar(iteration: int, total: int, prefix: str="", suffix: str="",
 
         Parameters
         ----------
-        iteration : int, required
+        iteration : int
             Current iteration.
-        total : int, required
+        total : int
             Total iterations.
         prefix : str, optional
             Prefix string.
@@ -40,15 +40,104 @@ def printProgressBar(iteration: int, total: int, prefix: str="", suffix: str="",
     if iteration == total:
         print()
 
-def convert_content_to_pandas(session: LexisSession, content: list[dict], supress_print: bool=False) -> DataFrame:
+def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, content: list[dict], 
+                                                     supress_print: bool=False) -> DataFrame:
     """
-        Convert HTTP response content from JSON to pandas DataFrame.
+        Convert HTTP response content of GET datasets status from JSON format to pandas DataFrame.
         
         Parameters
         ----------
-        session : LexisSession, required
+        session : LexisSession
             Current Lexis Session.
-        content : list[str], required
+        content : list[str]
+            HTTP response content.
+        suppress_print : bool, optional
+            If True all prints are suppressed.
+
+        Return
+        ------
+        datasets_table : DataFrame
+            Table of all datasets
+    """
+
+    cols: list[str] = ["Filename", "Project", "TaskState", "TaskResult",
+                       "TransferType", "DatasetID", "RequestID", "CreatedAt"]
+    
+    datasets_table: DataFrame = DataFrame(columns=cols)
+
+    try:
+        session.logging.debug(f"Converting HTTP content from JSON to pandas Dataframe -- PROGRESS")
+
+        if not supress_print:
+            print(f"Converting HTTP content from JSON to pandas Dataframe...")
+
+        for i in range(len(content)):
+            if "Filename" in content[i]:
+                filename: str = content[i]["filename"]
+            else:
+                filename: str = str("UKNOWN Filename")
+
+            if "project" in content[i]:
+                project: str = content[i]["project"]
+            else:
+                project: str = str("UKNOWN Project")                
+
+            if "task_state" in content[i]:
+                task_state: str = content[i]["task_state"]
+            else:
+                task_state: str = str("UKNOWN Task State")
+
+            if "task_result" in content[i]:
+                task_result: list[str] | str = content[i]["task_result"]
+            else:
+                task_result: str = str("UKNOWN Task Result")
+
+            if "transfer_type" in content[i]:
+                transfer_type: str = content[i]["transfer_type"]
+            else:
+                transfer_type: str = str("UKNOWN Transfer Type")
+
+            if "dataset_id" in content[i]:
+                dataset_id: str = content[i]["dataset_id"]
+            else:
+                dataset_id: str = str("UKNOWN DatasetID")
+
+            if "request_id" in content[i]:
+                request_id: str = content[i]["request_id"]
+            else:
+                request_id: str = str("UKNOWN RequestID")
+
+            if "created_at" in content[i]:
+                created_at: str = content[i]["created_at"]
+            else:
+                created_at: str = str("UKNOWN Creation Date")
+            
+            datasets_table.loc[i] = [filename, project, task_state, task_result,
+                                     transfer_type, dataset_id, request_id, created_at]
+
+    except KeyError as kerr:
+        session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
+        session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
+        session.logging.debug(f"Printing HTTP request content:")
+        session.logging.debug(json.dumps(content, indent=4))
+        
+        if not supress_print:
+            print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
+            print(f"Printing HTTP request content:")
+            print(json.dumps(content, indent=4))
+
+    return datasets_table
+
+def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, content: list[dict],
+                                                  supress_print: bool=False) -> DataFrame:
+    """
+        Convert HTTP response content of GET all datasets from JSON format to pandas DataFrame.
+        
+        Parameters
+        ----------
+        session : LexisSession
+            Current Lexis Session.
+        content : list[str]
             HTTP response content.
         suppress_print : bool, optional
             If True all prints are suppressed.
