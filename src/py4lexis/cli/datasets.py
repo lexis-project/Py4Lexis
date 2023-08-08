@@ -1,9 +1,11 @@
 # datasets.py
 
 import json
+from py4lexis.session import LexisSession
 from py4lexis.ddi.datasets import Datasets
 from py4lexis.exceptions import Py4LexisException
 from py4lexis.utils import printProgressBar
+from pandas import DataFrame
 import time
 # Making ASCII table
 # Source: https://stackoverflow.com/questions/5909873/how-can-i-pretty-print-ascii-tables-with-python
@@ -11,7 +13,7 @@ from tabulate import tabulate
 
 
 class DatasetsCLI:
-    def __init__(self, session):
+    def __init__(self, session: LexisSession):
         """
             A class holds methods to manage datasets within LEXIS platform using INTERACTIVE mode.
 
@@ -21,8 +23,10 @@ class DatasetsCLI:
 
             Methods
             -------
-            create_dataset(access, project, push_method=None, path=None, contributor=None, creator=None,
-                            owner=None, publicationYear=None, publisher=None, resourceType=None, title=None)
+            create_dataset(access: str, project: str, push_method: str=None, path: str=None,
+                           contributor: list[str]=None, creator: list[str]=None, owner: list[str]=None,
+                           publicationYear: str=None, publisher: list[str]=None, resourceType: str=None,
+                           title: str=None) -> None
                 Create an empty dataset with specified attributes.
 
             tus_uploader(access, project, filename, file_path=None, path=None, contributor=None, creator=None,
@@ -33,44 +37,52 @@ class DatasetsCLI:
             get_dataset_status()
                 Prints a table of the datasets' staging states.
 
-            get_all_dataset()
-                Prints a table of the all existing datasets.
+            get_all_datasets(filter_title: str=None, filter_access: str=None, 
+                             filter_project: str=None, filter_zone: str=None) -> None
+                Prints a table of the all existing datasets. Is possible to use filters to get filtered table by
+                title, access, zone, project.
 
             delete_dataset_by_id(internal_id, access, project)
                 Deletes a dataset by a specified internalID.
         """
-        self.session = session
-        self.datasets = Datasets(session)
+        self.session: LexisSession = session
+        self.datasets: Datasets = Datasets(session, suppress_print=False)
 
-    def create_dataset(self, access, project, push_method=None, path=None, contributor=None, creator=None,
-                       owner=None, publicationYear=None, publisher=None, resourceType=None, title=None):
+    def create_dataset(self, access: str, project: str, push_method: str=None, path: str=None,
+                       contributor: list[str]=None, creator: list[str]=None, owner: list[str]=None,
+                       publicationYear: str=None, publisher: list[str]=None, resourceType: str=None,
+                       title: str=None) -> None:
         """
             Creates an empty dataset with specified attributes
 
             Parameters
             ----------
-            access : str
+            access: str, required
                 One of the access types [public, project, user]
-            project: str
+            project: str, required
                 Project's short name.
             push_method: str, optional
                 By default: push_mehtod = "empty"
             path: str, optional
                 By default, root path is set, i.e. './'
-            contributor: list (str), optional
+            contributor: list[str], optional
                 By default: ["UNKNOWN contributor"]
-            creator: list (str), optional
+            creator: list[str], optional
                 By default: ["UNKNOWN creator"]
-            owner: list (str), optional
+            owner: list[str], optional
                 By default: ["UNKNOWN owner"]
             publicationYear: str, optional
-                By default: current year
-            publisher: list (str), optional
+                By default: CURRENT_YEAR
+            publisher: list[str], optional
                 By default: ["UNKNOWN publisher"]
             resourceType: str, optional
                 By default: "UNKNOWN resource type"
             title: str, optional
-                By default: "UNTITLED_Dataset_" + timestamp
+                By default: "UNTITLED_Dataset_" + TIMESTAMP
+            
+            Return
+            ------
+            None
         """
 
         print(f"Creating dataset with title {title}\n    access:{access}\n    project:{project}\n    push_method:{push_method}")
@@ -102,15 +114,15 @@ class DatasetsCLI:
                 Path to a file in user's machine
             path: str, optional
                 By default, root path is set, i.e. './'.
-            contributor: list (str), optional
+            contributor: list[str], optional
                 By default: ["UNKNOWN contributor"]
-            creator: list (str), optional
+            creator: list[str], optional
                 By default: ["UNKNOWN creator"]
-            owner: list (str), optional
+            owner: list[str], optional
                 By default: ["UNKNOWN owner"]
             publicationYear: str, optional
                 By default: current year
-            publisher: list (str), optional
+            publisher: list[str], optional
                 By default: ["UNKNOWN publisher"]
             resourceType: str, optional
                 By default: "UNKNOWN resource type"
@@ -153,56 +165,46 @@ class DatasetsCLI:
             print(f"Printing HTTP request content:")
             print(json.dumps(content, indent=4))
 
-    def get_all_datasets(self):
+    def get_all_datasets(self, filter_title: str=None, filter_access: str=None, 
+                         filter_project: str=None, filter_zone: str=None) -> None:
         """
-            Prints a table of the all existing datasets.
+            Prints a table of the all existing datasets. Is possible to use filters to get filtered table by
+            title, access, zone, project.
+
+            Parameters
+            ----------
+            filter_title : str, optional
+                To filter table of datasets by title. By default: filter_title = None
+            filter_access : str, optional
+                To filter table of datasets by access. By default: filter_access = None
+            filter_project : str, optional
+                To filter table of datasets by project. By default: filter_project = None
+            filter_zone : str, optional
+                To filter table of datasets by title. By default: filter_zone = None
         """
 
         print(f"Retrieving data of the datasets...")
-        content, req_status = self.datasets.get_all_datasets()
+        content, req_status = self.datasets.get_all_datasets(content_as_pandas=True)
         if 200 <= req_status <= 299:
             try:
-                print(f"Formatting response into ASCII table...")
-                data_table = []
-                for i in range(len(content)):
-                    if 'title' in content[i]['metadata']:
-                        title = content[i]['metadata']['title']
-                    else:
-                        title = 'UKNOWN Title'
+                print(f"Formatting pandas DataFrame from response into ASCII table...")
+                
+                cols: list[str] = ["Title", "Access", "Project", "Zone", "InternalID", "CreationDate"]
+                datasets_table: DataFrame = content[cols]
 
-                    if 'CreationDate' in content[i]['metadata']:
-                        date_time = content[i]['metadata']['CreationDate']
-                    else:
-                        date_time = 'UKNOWN Creation Date'
+                if filter_title is not None:
+                    datasets_table = datasets_table[datasets_table["Title"] == filter_title]
+                
+                if filter_access is not None:
+                    datasets_table = datasets_table[datasets_table["Access"] == filter_access]
 
-                    if 'access' in content[i]['location']:
-                        access = content[i]['location']['access']
-                    else:
-                        access = 'UKNOWN Access'
+                if filter_project is not None:
+                    datasets_table = datasets_table[datasets_table["Project"] == filter_project]
 
-                    if 'project' in content[i]['location']:
-                        project = content[i]['location']['project']
-                    else:
-                        project = 'UKNOWN Project'
+                if filter_zone is not None:
+                    datasets_table = datasets_table[datasets_table["Zone"] == filter_zone]
 
-                    if 'zone' in content[i]['location']:
-                        zone = content[i]['location']['zone']
-                    else:
-                        zone = 'UKNOWN Zone'
-
-                    if 'internalID' in content[i]['location']:
-                        internalID = content[i]['location']['internalID']
-                    else:
-                        internalID = 'UKNOWN InternalID'
-
-                    data_table.append([title,
-                                       date_time,
-                                       access,
-                                       project,
-                                       zone,
-                                       internalID])
-                print(tabulate(data_table, ["Title", "Creation Date", "Access", "Project", "Zone", "Internal ID"],
-                               tablefmt="grid"))
+                print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 
             except json.decoder.JSONDecodeError:
                 print(f"JSON response of 'get_all_datasets()' from 'py4lexis.ddi.manage_datasets' can't be decoded!!!")

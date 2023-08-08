@@ -1,26 +1,33 @@
 # datasets.py
 
 import requests as req
+from requests import Response
 from datetime import date, datetime
 from py4lexis.ddi.tus_client import TusClient
 from py4lexis.exceptions import Py4LexisException
 from tusclient import exceptions
+from pandas import DataFrame
+from py4lexis.session import LexisSession
+from py4lexis.utils import convert_content_to_pandas
 import json
 import time
 
 class Datasets:
-    def __init__(self, session):
+    def __init__(self, session: LexisSession, suppress_print: bool=True) -> None:
         """
             A class holds methods to manage datasets within LEXIS platform.
 
             Attributes
             ----------
             session : class, LEXIS session
+            suppress_print: bool, optional if True then all prints are suppressed. By default: suppress_print=True
 
             Methods
             -------
-            create_dataset(access, project, push_method=None, path=None, contributor=None, creator=None,
-                            owner=None, publicationYear=None, publisher=None, resourceType=None, title=None)
+            create_dataset(access: str, project: str, push_method: str=None, path: str=None,
+                           contributor: list[str]=None, creator: list[str]=None, owner: list[str]=None,
+                           publicationYear: str=None, publisher: list[str]=None, resourceType: str=None,
+                           title: str=None) -> tuple[dict, int]
                 Create an empty dataset with specified attributes.
 
             tus_uploader(access, project, filename, file_path=None, path=None, contributor=None, creator=None,
@@ -31,48 +38,53 @@ class Datasets:
             get_dataset_status()
                 Prints a table of the datasets' staging states.
 
-            get_all_dataset()
+            get_all_datasets(self, content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame, int]
                 Prints a table of the all existing datasets.
 
             delete_dataset_by_id(internal_id, access, project)
                 Deletes a dataset by a specified internalID.
         """
         self.session = session
+        self.suppress_print = suppress_print
 
-    def create_dataset(self, access, project, push_method=None, path=None, contributor=None, creator=None,
-                       owner=None, publicationYear=None, publisher=None, resourceType=None, title=None):
+    def create_dataset(self, access: str, project: str, push_method: str=None, path: str=None,
+                       contributor: list[str]=None, creator: list[str]=None, owner: list[str]=None,
+                       publicationYear: str=None, publisher: list[str]=None, resourceType: str=None,
+                       title: str=None) -> tuple[dict, int]:
         """
             Creates an empty dataset with specified attributes
 
             Parameters
             ----------
-            access : str
+            access : str, required
                 One of the access types [public, project, user]
-            project: str
+            project: str, required
                 Project's short name.
             push_method: str, optional
                 By default: push_mehtod = "empty"
             path: str, optional
                 By default, root path is set, i.e. './'
-            contributor: list (str), optional
+            contributor: list[str], optional
                 By default: ["UNKNOWN contributor"]
-            creator: list (str), optional
+            creator: list[str], optional
                 By default: ["UNKNOWN creator"]
-            owner: list (str), optional
+            owner: list[str], optional
                 By default: ["UNKNOWN owner"]
             publicationYear: str, optional
-                By default: current year
-            publisher: list (str), optional
+                By default: CURRENT_YEAR
+            publisher: list[str], optional
                 By default: ["UNKNOWN publisher"]
             resourceType: str, optional
                 By default: "UNKNOWN resource type"
             title: str, optional
-                By default: "UNTITLED_Dataset_" + timestamp
+                By default: "UNTITLED_Dataset_" + TIMESTAMP
 
             Return
             ------
-            content: content of the HTTP request as JSON
-            req_status: status of the HTTP request
+            content : dict
+                Content of the HTTP request as JSON.
+            req_status : int
+                Status of the HTTP request.
         """
         if push_method is None:
             push_method = "empty"
@@ -94,35 +106,36 @@ class Datasets:
             title = "UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
 
         self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- PROGRESS")
-        has_content = False
-        content = None
-        req_status = None
-        status = True
+        has_content: bool = False
+        content: dict = {}
+        req_status: int = None
+        status: bool = True
         while not has_content:
-            response = req.post(self.session.API_PATH + 'dataset',
-                                headers=self.session.API_HEADER,
-                                json={
-                                    "push_method": push_method,
-                                    "access": access,
-                                    "project": project,
-                                    "path": path,
-                                    "metadata": {
-                                        "contributor": contributor,
-                                        "creator": creator,
-                                        "owner": owner,
-                                        "publicationYear": publicationYear,
-                                        "publisher": publisher,
-                                        "resourceType": resourceType,
-                                        "title": title
-                                    }
-                                }
-                                )
+            response: Response = req.post(
+                self.session.API_PATH + 'dataset',
+                headers=self.session.API_HEADER,
+                json={
+                    "push_method": push_method,
+                    "access": access,
+                    "project": project,
+                    "path": path,
+                    "metadata": {
+                        "contributor": contributor,
+                        "creator": creator,
+                        "owner": owner,
+                        "publicationYear": publicationYear,
+                        "publisher": publisher,
+                        "resourceType": resourceType,
+                        "title": title
+                    }
+                })
+            
             content = response.json()
             req_status = response.status_code
 
             # check token if valid
-            if 'message' in content:
-                if content['message'] == 'token no longer valid':
+            if "message" in content:
+                if content["message"] == "token no longer valid":
                     self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- TOKEN -- FAIL")
                     self.session.logging.debug(f"Refreshing token -- PROGRESS")
                     self.session.refresh_token()
@@ -284,24 +297,28 @@ class Datasets:
 
         return content, req_status
 
-    def get_all_datasets(self):
+    def get_all_datasets(self, content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame, int]:
         """
             Get all existing datasets
 
+            Parameters
+            ----------
+            content_as_pandas: bool, optional -- By default: content_as_pandas=False
+
             Return
             ------
-            content: content of the HTTP request as JSON
+            content: content of the HTTP request as JSON or as pandas DataFrame if content_as_pandas is set to True
             req_status: status of the HTTP request
         """
         self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- PROGRESS")
-        has_content = False
-        content = None
-        req_status = None
-        status = True
+        has_content: bool = False
+        content: list[dict] | DataFrame = None
+        req_status: int = None
+        status: bool = True
         while not has_content:
-            response = req.post(self.session.API_PATH + 'dataset/search/metadata',
-                                headers=self.session.API_HEADER,
-                                json={})
+            response: Response = req.post(self.session.API_PATH + 'dataset/search/metadata',
+                                          headers=self.session.API_HEADER,
+                                          json={})
             content = response.json()
             req_status = response.status_code
 
@@ -315,10 +332,25 @@ class Datasets:
                 else:
                     has_content = True
                     status = False
+                    content = None
                     self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- TOKEN -- FAIL")
             else:
                 has_content = True
                 self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- OK")
+
+        if content is not None and content_as_pandas:
+            if 200 <= req_status <= 299:
+                content = convert_content_to_pandas(self.session, content, supress_print=self.suppress_print)
+            else:
+                self.session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
+                self.session.logging.debug(f"Bad request status: '{req_status}'")
+                self.session.logging.debug(f"Printing HTTP request content:")
+                self.session.logging.debug(json.dumps(content, indent=4))
+
+                if not self.suppress_print:
+                    print(f"Bad request status: '{req_status}'")
+                    print(f"Printing HTTP request content:")
+                    print(json.dumps(content, indent=4))
 
         if not status:
             print("Some errors occurred. See log file, please.")
