@@ -40,8 +40,10 @@ def printProgressBar(iteration: int, total: int, prefix: str="", suffix: str="",
     if iteration == total:
         print()
 
-def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, content: list[dict], 
-                                                     supress_print: bool=False) -> DataFrame:
+
+def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, 
+                                                     content: list[dict], 
+                                                     supress_print: bool=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET datasets status from JSON format to pandas DataFrame.
         
@@ -56,8 +58,8 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, cont
 
         Return
         ------
-        datasets_table : DataFrame
-            Table of all datasets
+        DataFrame | None
+            Status information table of all datasets. None is returned when some errors occur.
     """
 
     cols: list[str] = ["Filename", "Project", "TaskState", "TaskResult",
@@ -65,6 +67,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, cont
     
     datasets_table: DataFrame = DataFrame(columns=cols)
 
+    status: bool = True
     try:
         session.logging.debug(f"Converting HTTP content from JSON to pandas Dataframe -- PROGRESS")
 
@@ -114,7 +117,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, cont
             
             datasets_table.loc[i] = [filename, project, task_state, task_result,
                                      transfer_type, dataset_id, request_id, created_at]
-
+        
     except KeyError as kerr:
         session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
         session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
@@ -126,10 +129,19 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, cont
             print(f"Printing HTTP request content:")
             print(json.dumps(content, indent=4))
 
-    return datasets_table
+        status = False
 
-def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, content: list[dict],
-                                                  supress_print: bool=False) -> DataFrame:
+    if not status:
+        if supress_print:
+            print("Some errors occurred. See log file, please.")
+        return None
+    else:
+        return datasets_table
+ 
+
+def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, 
+                                                  content: list[dict],
+                                                  supress_print: bool=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET all datasets from JSON format to pandas DataFrame.
         
@@ -144,8 +156,8 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, content
 
         Return
         ------
-        datasets_table : DataFrame
-            Table of all datasets
+        DataFrame | None
+            Information table of all datasets. None is returned when some errors occur.
     """
 
     cols: list[str] = ["Title", "Access", "Project", "Zone", "InternalID", "CreationDate",
@@ -279,6 +291,7 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, content
                                      compression, encryption]
 
     except KeyError as kerr:
+        status = False
         session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
         session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
         session.logging.debug(f"Printing HTTP request content:")
@@ -289,4 +302,9 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, content
             print(f"Printing HTTP request content:")
             print(json.dumps(content, indent=4))
 
-    return datasets_table
+    if not status:
+        if supress_print:
+            print("Some errors occurred. See log file, please.")
+        return None
+    else:
+        return datasets_table

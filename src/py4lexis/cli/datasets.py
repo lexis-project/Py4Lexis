@@ -14,31 +14,50 @@ from tabulate import tabulate
 
 
 class DatasetsCLI:
-    def __init__(self, session: LexisSession):
+    def __init__(self, session: LexisSession, print_content: bool=False):
         """
             A class holds methods to manage datasets within LEXIS platform using INTERACTIVE mode.
 
             Attributes
             ----------
-            session : class, LEXIS session
+            session : class,
+                Class which holds LEXIS session
+            print_content : bool, optional
+                If True then contents of all requests will be printed.
 
             Methods
             -------
-            create_dataset(access: str, project: str, push_method: str | None=None, path: str | None=None,
-                           contributor: list[str] | None=None, creator: list[str] | None=None, owner: list[str] | None=None,
-                           publicationYear: str | None=None, publisher: list[str] | None=None, resourceType: str | None=None,
-                           title: str | None=None) -> None
+            create_dataset(access: str, project: str, 
+                           push_method: str="empty", 
+                           zone: str="IT4ILexisZone",
+                           path: str="", 
+                           contributor: list[str]=["UNKNOWN contributor"], 
+                           creator: list[str]=["UNKNOWN creator"],
+                           owner: list[str]=["UNKNOWN owner"], 
+                           publicationYear: str=str(date.today().year),
+                           publisher: list[str]=["UNKNOWN publisher"], 
+                           resourceType: str=str("UNKNOWN resource type"),
+                           title: str=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> None
                 Create an empty dataset with specified attributes.
 
-            tus_uploader(access: str, project: str, filename: str, file_path: str | None=None,
-                         path: str | None=None, contributor: list[str] | None=None, creator: list[str] | None=None,
-                         owner: list[str] | None=None, publicationYear: str | None=None, publisher: list[str] | None=None,
-                         resourceType: str | None=None, title: str | None=None,
-                         expand: str | None=None, encryption: str | None=None) -> None
+            tus_uploader(access: str, project: str, filename: str, 
+                         zone: str="IT4ILexisZone", 
+                         file_path: str="./",
+                         path: str="", 
+                         contributor: list[str]=["NONAME contributor"], 
+                         creator: list[str]=["NONAME creator"],
+                         owner: list[str]=["NONAME owner"], 
+                         publicationYear: str=str(date.today().year), 
+                         publisher: list[str]=["NONAME publisher"],
+                         resourceType: str="NONAME resource type", 
+                         title: str="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                         expand: str="no", 
+                         encryption: str="no") -> None
                 Create a dataset and upload a data by TUS client.
 
-            get_dataset_status()
-                Prints a table of the datasets' staging states.
+            get_dataset_status(filter_filename: str="", filter_project: str="", filter_task_state="") -> None
+                Prints datasets with status into table. Is possible to use filters to get filtered table by
+                filename, project, task_status.
 
             get_all_datasets(filter_title: str=None, filter_access: str=None, 
                              filter_project: str=None, filter_zone: str=None) -> None
@@ -54,42 +73,51 @@ class DatasetsCLI:
                 It is possible to specify by path parameter which exact file in the dataset should be downloaded.
                 It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
         """
+        self.print_content: bool = print_content
         self.session: LexisSession = session
         self.datasets: Datasets = Datasets(session, suppress_print=False)
 
-    def create_dataset(self, access: str, project: str, push_method: str | None=None, zone: str | None = None, path: str | None=None,
-                       contributor: list[str] | None=None, creator: list[str] | None=None, owner: list[str] | None=None,
-                       publicationYear: str | None=None, publisher: list[str] | None=None, resourceType: str | None=None,
-                       title: str | None=None) -> None:
+
+    def create_dataset(self, access: str, project: str, 
+                       push_method: str="empty", 
+                       zone: str="IT4ILexisZone",
+                       path: str="", 
+                       contributor: list[str]=["UNKNOWN contributor"], 
+                       creator: list[str]=["UNKNOWN creator"],
+                       owner: list[str]=["UNKNOWN owner"], 
+                       publicationYear: str=str(date.today().year),
+                       publisher: list[str]=["UNKNOWN publisher"], 
+                       resourceType: str=str("UNKNOWN resource type"),
+                       title: str=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> None:
         """
             Creates an empty dataset with specified attributes
 
             Parameters
             ----------
-            access: str
+            access : str, 
                 One of the access types [public, project, user]
-            project: str
+            project: str, 
                 Project's short name.
-            push_method: str | None, optional
-                By default: push_mehtod='empty', if set to None.
-            zone: str | None, optional
-                iRODS zone name, one of ['IT4ILexisZone', 'LRZLexisZone']. By default: 'IT4ILexisZone', if set to None.
-            path: str | None, optional
-                By default, root path is set, i.e. './', if set to None.
-            contributor: list[str] | None, optional
-                By default: ["UNKNOWN contributor"], if set to None.
-            creator: list[str] | None, optional
-                By default: ["UNKNOWN creator"], if set to None.
-            owner: list[str] | None, optional
-                By default: ["UNKNOWN owner"], if set to None.
-            publicationYear: str | None, optional
-                By default: CURRENT_YEAR, if set to None.
-            publisher: list[str] | None, optional
-                By default: ["UNKNOWN publisher"], if set to None.
-            resourceType: str | None, optional
-                By default: "UNKNOWN resource type", if set to None.
-            title: str | None, optional
-                By default: "UNTITLED_Dataset_" + TIMESTAMP, if set to None.
+            push_method: str, optional
+                By default: "empty".
+            zone: str, optional
+                iRODS zone name, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+            path: str, optional
+                By default: "./"
+            contributor: list[str], optional
+                By default: ["UNKNOWN contributor"].
+            creator: list[str], optional
+                By default: ["UNKNOWN creator"].
+            owner: list[str], optional
+                By default: ["UNKNOWN owner"].
+            publicationYear: str, optional
+                By default: CURRENT_YEAR.
+            publisher: list[str], optional
+                By default: ["UNKNOWN publisher"].
+            resourceType: str, optional
+                By default: "UNKNOWN resource type".
+            title: str, optional
+                By default: "UNTITLED_Dataset_" + TIMESTAMP.
             
             Return
             ------
@@ -103,13 +131,14 @@ class DatasetsCLI:
               f" zone:{zone}")
         content, req_status = self.datasets.create_dataset(access, project, push_method, zone, path, contributor, creator,
                                                            owner, publicationYear, publisher, resourceType, title)
-        if 200 <= req_status <= 299:
+        if req_status is not None:
             print(f"Dataset successfully created...")
         else:
             print(f"Some error occurred while creating dataset. See log file, please.")
 
-        print(f"Printing HTTP request content:")
-        print(json.dumps(content, indent=4))
+        if self.print_content:
+            print(f"Printing HTTP request content: {content}")
+
 
     def tus_uploader(self, access: str, project: str, filename: str, 
                      zone: str="IT4ILexisZone", 
@@ -169,7 +198,8 @@ class DatasetsCLI:
         self.datasets.tus_uploader(access, project, filename, zone, file_path, path, contributor, creator, owner, publicationYear,
                                    publisher, resourceType, title, expand, encryption)
 
-    def get_dataset_status(self, filter_filename: str="", filter_project: str="", filter_task_state=""):
+
+    def get_dataset_status(self, filter_filename: str="", filter_project: str="", filter_task_state="") -> None:
         """
             Prints datasets with status into table. Is possible to use filters to get filtered table by
             filename, project, task_status.
@@ -185,7 +215,7 @@ class DatasetsCLI:
         """
 
         print(f"Retrieving data of the datasets...")
-        content, req_status = self.datasets.get_dataset_status()
+        content, req_status = self.datasets.get_dataset_status(content_as_pandas=True)
         if 200 <= req_status <= 299:
             try:
                 print(f"Formatting response into ASCII table...")
@@ -204,17 +234,11 @@ class DatasetsCLI:
 
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 
-            except json.decoder.JSONDecodeError:
-                print(f"JSON response of 'get_dataset_status()' from 'py4lexis.ddi.datasets' can't be decoded!!!")
-
             except KeyError as kerr:
-                print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
-                print(f"Printing HTTP request content:")
-                print(json.dumps(content, indent=4))
+                print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
         else:
-            print(f"Some error occurred. See log file, please.")
-            print(f"Printing HTTP request content:")
-            print(json.dumps(content, indent=4))
+            print(f"The following HTTP Error code was recieved: '{req_status}'.")
+
 
     def get_all_datasets(self, filter_title: str="", filter_access: str="", 
                          filter_project: str="", filter_zone: str="") -> None:
@@ -257,17 +281,11 @@ class DatasetsCLI:
 
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 
-            except json.decoder.JSONDecodeError:
-                print(f"JSON response of 'get_all_datasets()' from 'py4lexis.ddi.manage_datasets' can't be decoded!!!")
-
             except KeyError as kerr:
-                print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
-                print(f"Printing HTTP request content:")
-                print(json.dumps(content, indent=4))
+                print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
         else:
-            print(f"Some error occurred. See log file, please.")
-            print(f"Printing HTTP request content:")
-            print(json.dumps(content, indent=4))
+            print(f"The following HTTP Error code was recieved: '{req_status}'.")
+
 
     def delete_dataset_by_id(self, internal_id, access, project):
 
