@@ -67,7 +67,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
     
     datasets_table: DataFrame = DataFrame(columns=cols)
 
-    status: bool = True
+    is_error: bool = False
     try:
         session.logging.debug(f"Converting HTTP content from JSON to pandas Dataframe -- PROGRESS")
 
@@ -119,6 +119,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
                                      transfer_type, dataset_id, request_id, created_at]
         
     except KeyError as kerr:
+        is_error = True
         session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
         session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
         session.logging.debug(f"Printing HTTP request content:")
@@ -126,12 +127,8 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
         
         if not supress_print:
             print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
-            print(f"Printing HTTP request content:")
-            print(json.dumps(content, indent=4))
 
-        status = False
-
-    if not status:
+    if not is_error:
         if supress_print:
             print("Some errors occurred. See log file, please.")
         return None
@@ -166,6 +163,7 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
     
     datasets_table: DataFrame = DataFrame(columns=cols)
 
+    is_error: bool = False
     try:
         session.logging.debug(f"Converting HTTP content from JSON to pandas Dataframe -- PROGRESS")
 
@@ -291,7 +289,7 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
                                      compression, encryption]
 
     except KeyError as kerr:
-        status = False
+        is_error = True
         session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
         session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
         session.logging.debug(f"Printing HTTP request content:")
@@ -299,10 +297,8 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
         
         if not supress_print:
             print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
-            print(f"Printing HTTP request content:")
-            print(json.dumps(content, indent=4))
 
-    if not status:
+    if is_error:
         if supress_print:
             print("Some errors occurred. See log file, please.")
         return None
