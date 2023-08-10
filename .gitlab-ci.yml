@@ -48,6 +48,16 @@ run:
   #   paths:
   #     - build/*
 
+sast:
+  stage: test
+  artifacts:
+   name: sast
+   paths:
+     - gl-sast-report.json
+   reports:
+     sast: gl-sast-report.json
+   when: always
+
 pages:
   script:
     - pip install sphinx sphinx-rtd-theme
