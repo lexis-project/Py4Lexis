@@ -64,7 +64,7 @@ class DatasetsCLI:
                 Prints a table of the all existing datasets. Is possible to use filters to get filtered table by
                 title, access, zone, project.
 
-            delete_dataset_by_id(internal_id, access, project)
+            delete_dataset_by_id(internal_id: str, access: str, project: str) -> None
                 Deletes a dataset by a specified internalID.
 
             download_dataset(acccess: str, project: str, internal_id: str, zone:str,
@@ -101,7 +101,7 @@ class DatasetsCLI:
             push_method: str, optional
                 By default: "empty".
             zone: str, optional
-                iRODS zone name, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
             path: str, optional
                 By default: "./"
             contributor: list[str], optional
@@ -124,20 +124,18 @@ class DatasetsCLI:
             None
         """
 
-        print(f"Creating dataset with title {title}\n"+ 
-              f" access:{access}\n"+
-              f" project:{project}\n"+
-              f" push_method:{push_method}\n"+
-              f" zone:{zone}")
+        print(f"Creating dataset:"+
+              f"    title: {title}\n"+ 
+              f"    access:{access}\n"+
+              f"    project:{project}\n"+
+              f"    push_method:{push_method}\n"+
+              f"    zone:{zone}")
         content, req_status = self.datasets.create_dataset(access, project, push_method, zone, path, contributor, creator,
                                                            owner, publicationYear, publisher, resourceType, title)
         if req_status is not None:
             print(f"Dataset successfully created...")
         else:
             print(f"Some error occurred while creating dataset. See log file, please.")
-
-        if self.print_content:
-            print(f"Printing HTTP request content: {content}")
 
 
     def tus_uploader(self, access: str, project: str, filename: str, 
@@ -154,7 +152,7 @@ class DatasetsCLI:
                      expand: str="no", 
                      encryption: str="no") -> None:
         """
-            Upload a data by TUS client to the specified dataset.
+            Upload a data by TUS client to a new specified dataset.
 
             Parameters
             ----------
@@ -165,7 +163,7 @@ class DatasetsCLI:
             filename: str
                 Name of a file to be uploaded.
             zone: str | None, optional
-                iRODS zone name, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
             file_path: str | None, optional,
                 Path to a file in user's machine. By default "./".
             path: str, optional
@@ -194,7 +192,11 @@ class DatasetsCLI:
             None
         """
 
-        print(f"Initialising TUS upload of {filename}\n    access: {access}\n    project: {project}")
+        print(f"Initialising TUS upload:\n"+
+              f"    filename: of {filename}\n"+
+              f"    access: {access}\n"+
+              f"    project: {project}\n"+
+              f"    zone: {zone}")
         self.datasets.tus_uploader(access, project, filename, zone, file_path, path, contributor, creator, owner, publicationYear,
                                    publisher, resourceType, title, expand, encryption)
 
@@ -216,7 +218,7 @@ class DatasetsCLI:
 
         print(f"Retrieving data of the datasets...")
         content, req_status = self.datasets.get_dataset_status(content_as_pandas=True)
-        if 200 <= req_status <= 299:
+        if req_status is not None:
             try:
                 print(f"Formatting response into ASCII table...")
                 
@@ -237,7 +239,7 @@ class DatasetsCLI:
             except KeyError as kerr:
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
         else:
-            print(f"The following HTTP Error code was recieved: '{req_status}'.")
+            print(f"Some error occurred while creating dataset. See log file, please.")
 
 
     def get_all_datasets(self, filter_title: str="", filter_access: str="", 
@@ -260,7 +262,7 @@ class DatasetsCLI:
 
         print(f"Retrieving data of the datasets...")
         content, req_status = self.datasets.get_all_datasets(content_as_pandas=True)
-        if 200 <= req_status <= 299:
+        if req_status is not None:
             try:
                 print(f"Formatting pandas DataFrame from response into ASCII table...")
                 
@@ -284,20 +286,34 @@ class DatasetsCLI:
             except KeyError as kerr:
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
         else:
-            print(f"The following HTTP Error code was recieved: '{req_status}'.")
+            print(f"Some error occurred while creating dataset. See log file, please.")
 
 
-    def delete_dataset_by_id(self, internal_id, access, project):
+    def delete_dataset_by_id(self, internal_id: str, access: str, project: str) -> None:
+        """
+            Deletes a dataset by a specified internalID.
+
+            Parameters
+            ----------
+            internal_id : str
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
+            access : str
+                One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
+            project: str
+                Project's short name in which dataset is stored. Can be obtain by get_all_datasets() method.
+
+            Returns
+            -------
+            None
+        """
 
         print(f"Deleting dataset with ID: {internal_id}")
         content, req_status = self.datasets.delete_dataset_by_id(internal_id, access, project)
 
-        if 200 <= req_status <= 299:
+        if req_status is not None:
             print(f"Dataset has been deleted...")
         else:
             print(f"Some error occurred. See log file, please.")
-            print(f"Printing HTTP request content:")
-            print(json.dumps(content, indent=4))
 
 
     def download_dataset(self, acccess: str, project: str, internal_id: str, zone:str,
@@ -316,7 +332,7 @@ class DatasetsCLI:
             internal_id: str
                 InternalID of the dataset.
             zone: str
-                iRODS zone name.
+                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
             path: str, optional
                 Path to exact folder, by default = "".
             destination_file: str, optional
@@ -327,35 +343,43 @@ class DatasetsCLI:
             None
         """
 
-        print("Submitting download request on server")
+        print("Submitting download request on server...")
         down_request = self.datasets._ddi_submit_download(dataset_id=internal_id, 
                             zone=zone, access=acccess, project=project, path=path)
-        print("Download submitted")
+        print("Download submitted!")
 
         # Wait until it is ready
         retries_max: int = 200
         retries: int = 0
         delay: int = 5 # secs
-        print("Checking the status of download request")
+        is_error: bool = False
+        print("Checking the status of download request...")
         while retries < retries_max:
             status = self.datasets._ddi_get_download_status(request_id=down_request)
 
-            if status['task_state'] == 'SUCCESS':
+            if status["task_state"] == "SUCCESS":
                 # Download file
-                print("Starting downloading the dataset")
+                print("Starting downloading the dataset...")
                 self.datasets._ddi_download_dataset(request_id=down_request, destination_file=destination_file, progress_func=printProgressBar)
                 break
 
-            if status['task_state'] == 'ERROR' or status['task_state'] == "FAILURE":
-                self.session.logging.error('DOWNLOAD --  request failed: {0} -- FAILED'.format(status['task_result']))
-                print("Download request ended with FAILURE status")
-                raise Py4LexisException(status['task_result'])
+            if status["task_state"] == "ERROR" or status["task_state"] == "FAILURE":
+                is_error = True
+                self.session.logging.error(f"DOWNLOAD --  request failed: {status['task_result']} -- FAILED")
+                print("Download request ended with FAILURE status! Dataset Download -- FAILED!")
+                break
 
             self.session.logging.debug(f"DOWNLOAD -- waiting for download to become ready -- remaining retries {retries} -- OK")    
-            print(f'Download request not ready yet, {retries_max - retries} retries remaining')
+            print(f"Download request not ready yet, {retries_max}/{retries} retries remaining")
             # Refresh
-            self.session.token_refresh()
+            self.session.refresh_token()
             retries = retries + 1
             time.sleep(delay)
-        print("Dataset downloaded")
+
+        if retries == retries_max and not is_error:
+            is_error = True
+            print(f"Reached maximum retries: {retries}/{retries_max} -- Download FAILED!")
+
+        if not is_error:
+            print("Dataset download -- SUCCESS!")
 

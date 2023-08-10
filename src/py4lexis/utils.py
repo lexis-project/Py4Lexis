@@ -59,7 +59,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
         Return
         ------
         DataFrame | None
-            Status information table of all datasets. None is returned when some errors occur.
+            Status information table of all datasets. None is returned when some errors have occured.
     """
 
     cols: list[str] = ["Filename", "Project", "TaskState", "TaskResult",
@@ -128,7 +128,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
         if not supress_print:
             print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
 
-    if not is_error:
+    if is_error:
         if supress_print:
             print("Some errors occurred. See log file, please.")
         return None
@@ -154,7 +154,7 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
         Return
         ------
         DataFrame | None
-            Information table of all datasets. None is returned when some errors occur.
+            Information table of all datasets. None is returned when some errors have occured.
     """
 
     cols: list[str] = ["Title", "Access", "Project", "Zone", "InternalID", "CreationDate",
@@ -304,3 +304,6 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
         return None
     else:
         return datasets_table
+    
+def convert_content_of_get_list_of_files_in_datasets_to_pandas() -> DataFrame:
+    pass

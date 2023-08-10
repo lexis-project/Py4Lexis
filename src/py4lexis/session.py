@@ -172,12 +172,8 @@ class LexisSession:
         is_error: bool = False
         try:
             tokens: dict = {}
-            tokens = self.keycloak_openid.refresh_token(self.get_refresh_token())
             self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- PROGRESS")
-            while len(tokens.keys()) == 0:
-                print("waiting for refresh...")
-                time.sleep(5)
-                pass                
+            tokens = self.keycloak_openid.refresh_token(self.get_refresh_token())                      
             self.TOKEN = tokens["access_token"]
             self.REFRESH_TOKEN = tokens["refresh_token"]
             self.API_HEADER = {"Authorization": "Bearer " + self.TOKEN}
@@ -220,7 +216,7 @@ class LexisSession:
             bool
                 request_solved: If True, request status is solved.
             bool
-                is_error: If True, some errors occur.
+                is_error: If True, some errors have occured.
         """
 
         status_solved: bool = False

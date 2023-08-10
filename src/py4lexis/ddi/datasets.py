@@ -9,7 +9,8 @@ from tusclient import exceptions
 from pandas import DataFrame
 from py4lexis.session import LexisSession
 from py4lexis.utils import convert_content_of_get_all_datasets_to_pandas, \
-                           convert_content_of_get_datasets_status_to_pandas
+                           convert_content_of_get_datasets_status_to_pandas, \
+                           convert_content_of_get_list_of_files_in_datasets_to_pandas
 from py4lexis.ddi.uploader import Uploader
 import json
 import time
@@ -98,7 +99,7 @@ class Datasets:
             push_method: str, optional
                 By default: "empty".
             zone: str, optional
-                iRODS zone name, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
             path: str, optional
                 By default: "./"
             contributor: list[str], optional
@@ -119,12 +120,29 @@ class Datasets:
             Returns
             -------
             dict | None
-                Content of the HTTP request as JSON. None is returned if some errors occur.
+                Content of the HTTP request as JSON. None is returned if some errors have occured.
             int | None
-                Status of the HTTP request. None is returned if some errors occur.
+                Status of the HTTP request. None is returned if some errors have occured.
         """
+        url: str = self.session.API_PATH + "dataset"
+        post_body: dict = {
+            "push_method": push_method,
+            "access": access,
+            "project": project,
+            "zone": zone,
+            "path": path,
+            "metadata": {
+                "contributor": contributor,
+                "creator": creator,
+                "owner": owner,
+                "publicationYear": publicationYear,
+                "publisher": publisher,
+                "resourceType": resourceType,
+                "title": title
+            }
+        }
 
-        self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- CREATE -- PROGRESS")
+        self.session.logging.debug(f"POST -- {url} -- CREATE -- PROGRESS")
         status_solved: bool = False
         content: dict = {}
         req_status: int = -1
@@ -134,37 +152,22 @@ class Datasets:
                 response: Response = req.post(
                         self.session.API_PATH + "dataset",
                         headers=self.session.API_HEADER,
-                        json={
-                            "push_method": push_method,
-                            "access": access,
-                            "project": project,
-                            "zone": zone,
-                            "path": path,
-                            "metadata": {
-                                "contributor": contributor,
-                                "creator": creator,
-                                "owner": owner,
-                                "publicationYear": publicationYear,
-                                "publisher": publisher,
-                                "resourceType": resourceType,
-                                "title": title
-                            }
-                        })
+                        json=post_body)
                     
                 content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
-                                                                             f"POST -- {self.session.API_PATH}dataset -- CREATE", 
+                                                                             f"POST -- {url} -- CREATE", 
                                                                              self.suppress_print)            
         
         except json.decoder.JSONDecodeError:
             is_error = False
-            self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- CREATE -- JSON response can't be decoded -- FAILED")
+            self.session.logging.debug(f"POST -- {url} -- CREATE -- JSON response can't be decoded -- FAILED")
 
             if not self.suppress_print:
-                print(f"POST -- {self.session.API_PATH}dataset -- CREATE -- JSON response can't be decoded -- FAILED")
+                print(f"POST -- {url} -- CREATE -- JSON response can't be decoded -- FAILED")
 
         if is_error:
             if self.suppress_print:
@@ -195,11 +198,11 @@ class Datasets:
             access : str
                 One of the access types [public, project, user].
             project: str
-                Project's short name.
+                Project's short name in which dataset will be stored.
             filename: str
                 Name of a file to be uploaded.
             zone: str | None, optional
-                iRODS zone name, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
             file_path: str | None, optional,
                 Path to a file in user's machine. By default "./".
             path: str, optional
@@ -227,35 +230,38 @@ class Datasets:
             -------
             None
         """
+        url: str = self.session.API_PATH + "transfer/upload/"
+        metadata: dict = {
+            "path": path,
+            "zone": zone,
+            "filename": filename,
+            "user": self.session.username,
+            "project": project,
+            "access": access,
+            "expand": expand,
+            "encryption": encryption,
+            "metadata": json.dumps({
+                "contributor": contributor,
+                "creator": creator,
+                "owner": owner,
+                "publicationYear": publicationYear,
+                "publisher": publisher,
+                "resourceType": resourceType,
+                "title": title
+            })
+        }
 
         status: bool = True
         try:
             # TODO: Refresh token if not valid and repeat
-            tus_client: TusClient = TusClient(self.session.API_PATH + "transfer/upload/",
+            tus_client: TusClient = TusClient(url,
                                               headers=self.session.API_HEADER)
+            
             self.session.logging.debug(f"TUS UPLOAD -- TUS client initialised -- OK")
 
-            uploader: Uploader = tus_client.uploader(
-                file_path=file_path + filename, chunk_size=1048576,
-                metadata={
-                    "path": path,
-                    "zone": zone,
-                    "filename": filename,
-                    "user": self.session.username,
-                    "project": project,
-                    "access": access,
-                    "expand": expand,
-                    "encryption": encryption,
-                    "metadata": json.dumps({
-                        "contributor": contributor,
-                        "creator": creator,
-                        "owner": owner,
-                        "publicationYear": publicationYear,
-                        "publisher": publisher,
-                        "resourceType": resourceType,
-                        "title": title
-                    })
-                })
+            uploader: Uploader = tus_client.uploader(file_path=file_path + filename, 
+                                                     chunk_size=1048576,
+                                                     metadata=metadata)
             
             self.session.logging.debug(f"TUS UPLOAD -- TUS upload initialised -- OK")
             uploader.upload()
@@ -275,29 +281,35 @@ class Datasets:
         """
             Get datasets' status information.
 
+            Parameters
+            ----------
+            content_as_pandas : bool, optional
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
+
             Returns
             -------
             list[dict] | DataFrame | None
-                Content of the HTTP request as list of JSONs dictionaries or pandas DataFrame if 'content_as_pandas=True'.  None is returned if some errors occur.
+                Content of the HTTP request as list of JSONs dictionaries or pandas DataFrame if 'content_as_pandas=True'.  None is returned if some errors have occured.
             int | None
-                Status of the HTTP request.  None is returned if some errors occur.
+                Status of the HTTP request.  None is returned if some errors have occured.
         """
+        url: str = self.session.API_PATH + "transfer/status"
 
-        self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- PROGRESS")
+        self.session.logging.debug(f"GET -- {url} -- PROGRESS")
         status_solved: bool = False
         content: list[dict] | DataFrame | None = []
         req_status: int = -1
         is_error: bool = True
         try:
             while not status_solved:
-                response: Response = req.get(self.session.API_PATH + "transfer/status",
+                response: Response = req.get(url,
                                              headers={"Authorization": "Bearer " + self.session.TOKEN})
                 content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
-                                                                             f"GET -- {self.session.API_PATH}transfer/status", 
+                                                                             f"GET -- {url}", 
                                                                              self.suppress_print)                
 
             if not is_error and content_as_pandas:
@@ -305,19 +317,19 @@ class Datasets:
 
                 if content is None:
                     is_error = True
-                    self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- DATAFRAME -- FAILED")
+                    self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- FAILED")
                     
                     if not self.suppress_print:
-                        print(f"GET -- {self.session.API_PATH}transfer/status -- DATAFRAME -- FAILED")
+                        print(f"GET -- {url} -- DATAFRAME -- FAILED")
                 else:
-                    self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- DATAFRAME -- OK")            
+                    self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- OK")            
 
         except json.decoder.JSONDecodeError:
             is_error = True
-            self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- JSON response can't be decoded -- FAILED")
+            self.session.logging.debug(f"GET -- {url} -- JSON response can't be decoded -- FAILED")
 
             if not self.suppress_print:
-                print(f"GET -- {self.session.API_PATH}transfer/status -- JSON response can't be decoded -- FAILED")
+                print(f"GET -- {url} -- JSON response can't be decoded -- FAILED")
 
         if is_error:
             if self.suppress_print:
@@ -334,23 +346,25 @@ class Datasets:
             Parameters
             ----------
             content_as_pandas: bool, optional
-                By default: content_as_pandas=False
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
 
             Returns
             -------
             list[dict] | DataFrame | None
-                Content of the HTTP request as JSON or as pandas DataFrame if 'content_as_pandas=True'. None if some errors occur.
+                Content of the HTTP request as JSON or as pandas DataFrame if 'content_as_pandas=True'. None if some errors have occured.
             int | None
-                Status of the HTTP request. None if some errors occur.
+                Status of the HTTP request. None if some errors have occured.
         """
-        self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- PROGRESS")
+        url: str = self.session.API_PATH + "dataset/search/metadata/"
+
+        self.session.logging.debug(f"POST -- {url} -- PROGRESS")
         status_solved: bool = False
         content: list[dict] | DataFrame | None = None
         req_status: int = -1
         is_error: bool = True
         try:
             while not status_solved:
-                response: Response = req.post(self.session.API_PATH + "dataset/search/metadata",
+                response: Response = req.post(url,
                                               headers=self.session.API_HEADER,
                                               json={})
                 content = response.json()
@@ -358,7 +372,7 @@ class Datasets:
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
-                                                                             f"POST -- {self.session.API_PATH}dataset/search/metadata/", 
+                                                                             f"POST -- {url}", 
                                                                              self.suppress_print)
 
             if not is_error and content_as_pandas:
@@ -366,19 +380,19 @@ class Datasets:
 
                 if content is None:
                     is_error = True
-                    self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- DATAFRAME -- FAILED")
+                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
                     
                     if not self.suppress_print:
-                        print(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- DATAFRAME -- FAILED")
+                        print(f"POST -- {url} -- DATAFRAME -- FAILED")
                 else:
-                    self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- DATAFRAME -- OK")
+                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
     
         except json.decoder.JSONDecodeError:
             is_error = True
-            self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- JSON response can't be decoded -- FAILED")
+            self.session.logging.debug(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
 
             if not self.suppress_print:
-                print(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- JSON response can't be decoded -- FAILED")
+                print(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
 
         if is_error:
             if self.suppress_print:
@@ -394,49 +408,52 @@ class Datasets:
 
             Parameters
             ----------
-            internal_id: str
-                InternalID of the dataset
+            internal_id : str
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
             access : str
-                One of the access types [public, project, user]
+                One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
             project: str
-                Project's short name.
+                Project's short name in which dataset is stored. Can be obtain by get_all_datasets() method.
 
             Returns
             -------
             list[dict] | None
-                Content of the HTTP request as JSON. None if some errors occur.
+                Content of the HTTP request as JSON. None if some errors have occured.
             int | None
-                Status of the HTTP request. None if some errors occur.
+                Status of the HTTP request. None if some errors have occured.
         """
-        self.session.logging.debug(f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id} -- PROGRESS")
+        url: str = self.session.API_PATH + "dataset"
+        delete_body: dict = {
+            "access": access,
+            "project": project,
+            "internalID": internal_id
+        }
+
+        self.session.logging.debug(f"DELETE -- {url} -- ID:{internal_id} -- PROGRESS")
         status_solved: bool = False
         content: dict = {}
         req_status: int = -1
         is_error: bool = False
         try:
             while not status_solved:
-                response = req.delete(self.session.API_PATH + "dataset",
-                                    headers=self.session.API_HEADER,
-                                    json={
-                                        "access": access,
-                                        "project": project,
-                                        "internalID": internal_id
-                                    })
+                response = req.delete(url,
+                                      headers=self.session.API_HEADER,
+                                      json=delete_body)
                 
                 content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
-                                                                             f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id}", 
+                                                                             f"DELETE -- {url} -- ID:{internal_id}", 
                                                                              self.suppress_print)
 
         except json.decoder.JSONDecodeError:
             is_error = True
-            self.session.logging.debug(f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id} -- JSON response can't be decoded -- FAILED")
+            self.session.logging.debug(f"DELETE -- {url} -- ID:{internal_id} -- JSON response can't be decoded -- FAILED")
 
             if not self.suppress_print:
-                print(f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id} -- JSON response can't be decoded -- FAILED")
+                print(f"DELETE -- {url} -- ID:{internal_id} -- JSON response can't be decoded -- FAILED")
         
         if is_error:
             if self.suppress_print:
@@ -466,6 +483,7 @@ class Datasets:
             str | None
                 ID of the request. None if some errors occur
         """
+        url: str = self.session.API_PATH + "transfer/download"
         download_body: dict = {
             "zone": zone,
             "access": access,
@@ -480,33 +498,33 @@ class Datasets:
         req_status: int = -1
         try:
             while not status_solved:
-                response: Response = req.post(url=self.session.API_PATH + "transfer/download",
-                                        headers=self.session.API_HEADER,
-                                        json=download_body)
+                response: Response = req.post(url,
+                                              headers=self.session.API_HEADER,
+                                              json=download_body)
                 
                 content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
-                                                                             f"POST -- {self.session.API_PATH}transfer/download -- DATA_ID:{dataset_id}", 
+                                                                             f"POST -- {url} -- DATA_ID:{dataset_id}", 
                                                                              self.suppress_print)
             
             request_id: str = content["request_id"]
 
         except json.decoder.JSONDecodeError:
             is_error = True
-            self.session.logging.debug(f"POST -- {self.session.API_PATH}transfer/download -- DATA_ID:{dataset_id} -- JSON response of can't be decoded -- FAILED")
+            self.session.logging.debug(f"POST -- {url} -- DATA_ID:{dataset_id} -- JSON response of can't be decoded -- FAILED")
 
             if not self.suppress_print:
-                print(f"POST -- {self.session.API_PATH}transfer/download -- DATA_ID:{dataset_id} -- JSON response of can't be decoded -- FAILED")
+                print(f"POST -- {url} -- DATA_ID:{dataset_id} -- JSON response of can't be decoded -- FAILED")
 
         except KeyError as kerr:
             is_error = True
-            self.session.logging.debug(f"POST -- {self.session.API_PATH}transfer/download -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
+            self.session.logging.debug(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
             
             if not self.suppress_print:
-                print(f"POST -- {self.session.API_PATH}transfer/download -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
+                print(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
         
         if is_error:
             if self.suppress_print:
@@ -530,29 +548,30 @@ class Datasets:
             dict
                 Status of the download.
         """
+        url: str = self.session.API_PATH + "transfer/status/" + request_id
+
         status_solved: bool = False
         is_error: bool = False
         content: dict = {}
         req_status: int = -1
         try:
             while not status_solved:
-                response: Response = req.get(url=self.session.API_PATH + "transfer/status/" + 
-                                             request_id, headers=self.session.API_HEADER)
+                response: Response = req.get(url, headers=self.session.API_HEADER)
                 
                 content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
-                                                                             f"GET -- {self.session.API_PATH}transfer/status -- REQ_ID:{request_id}", 
+                                                                             f"GET -- {url} -- REQ_ID:{request_id}", 
                                                                              self.suppress_print)
 
         except json.decoder.JSONDecodeError:
             is_error = True
-            self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- REQ_ID:{request_id} -- JSON response of can't be decoded -- FAILED")
+            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- JSON response of can't be decoded -- FAILED")
 
             if not self.suppress_print:
-                print(f"GET -- {self.session.API_PATH}transfer/status -- REQ_ID:{request_id} -- JSON response of can't be decoded -- FAILED")
+                print(f"GET -- {url} -- REQ_ID:{request_id} -- JSON response of can't be decoded -- FAILED")
         
         if is_error:
             if self.suppress_print:
@@ -579,6 +598,7 @@ class Datasets:
             -------
             None
         """
+        url: str = self.session.API_PATH + "transfer/download/" + request_id
 
         status_solved: bool = False
         is_error: bool = False
@@ -586,7 +606,7 @@ class Datasets:
         req_status: int = -1
         try:
             while not status_solved:
-                response: Response = req.get(url=self.session.API_PATH + "transfer/download/" + request_id,
+                response: Response = req.get(url,
                                              headers=self.session.API_HEADER,
                                              stream=True)
                 
@@ -599,12 +619,12 @@ class Datasets:
                     content = response.json()
                     status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                                 content, 
-                                                                                f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD", 
+                                                                                f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD", 
                                                                                 self.suppress_print)
             
             # File ready, start downloading
             total_length = response.headers.get("content-length")
-            self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- STARTING DOWNLOAD -- OK")
+            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- STARTING DOWNLOAD -- OK")
 
             with open(destination_file, "wb") as f:
                 if total_length is None: # no content length header
@@ -625,26 +645,26 @@ class Datasets:
 
         except json.decoder.JSONDecodeError:
             is_error = True
-            self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- JSON response of can't be decoded -- FAILED")
+            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- JSON response of can't be decoded -- FAILED")
 
             if not self.suppress_print:
-                    print(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- JSON response of can't be decoded -- FAILED")
+                    print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- JSON response of can't be decoded -- FAILED")
 
         except KeyError as kerr:
             is_error = True
-            self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
+            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
             
             if not self.suppress_print:
-                print(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
+                print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
 
         except IOError as ioe:
             is_error = True
-            self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- FAILED")
-            self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
+            self.session.logging.error(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- FAILED")
+            self.session.logging.error(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
             
             if not self.suppress_print:
-                print(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- FAILED")
-                print(f"GET -- {self.session.API_PATH}transfer/download -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
+                print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- FAILED")
+                print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
         
         if is_error:
             if self.suppress_print:
@@ -698,18 +718,17 @@ class Datasets:
             Parameters
             ----------
             access : str
-                One of the access types [public, project, user]
+                One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
             project: str
-                Project's short name.
+                Project's short name in which dataset is stored. Can be obtain by get_all_datasets() method.
             internal_id: str
-                InternalID of the dataset
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
             zone: str
-                iRODS zone name
+                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
             path: str, optional
-                Path to exact folder, by default  = ""
+                Path to exact folder, by default  = "".
             destination_file: str, optional
-                Path to the local destination folder, by default "./download.tar.gz"
-
+                Path to the local destination folder, by default "./download.tar.gz".
 
             Returns
             -------
@@ -741,14 +760,14 @@ class Datasets:
                     print(f"DOWNLOAD -- REQ_ID:{down_request} -- request failed: {status['task_result']} -- FAILED")
                 break
 
-            self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- waiting for download to become ready -- remaining retries {retries} -- OK")    
+            self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- waiting for download to become ready -- remaining retries {retries}/{retries_max} -- OK")    
 
             # Refresh
             self.session.refresh_token()
             retries = retries + 1
             time.sleep(delay)
         
-        if retries == retries_max:
+        if retries == retries_max and not is_error:
             is_error = True
             self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED")    
 
@@ -758,4 +777,88 @@ class Datasets:
         if is_error:
             if self.suppress_print:
                 print("Some errors occurred. See log file, please.")
+
+
+    def get_list_of_files_in_dataset(self, internal_id: str, access: str,
+                                     project: str, zone: str, path: str="",
+                                     content_as_pandas: bool=False) -> dict[str] | DataFrame:
+        """
+            List all files within the dataset.
+
+            Parameters
+            ----------
+            internal_id : str
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
+            access : str
+                Access of the dataset. One of ["user", "project", "public"]. Can be obtain by get_all_datasets() method.
+            project : str
+                Project's short name in which the dataset is stored. Can be obtain by get_all_datasets() method.
+            zone : str
+                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
+            path : str, optional
+                Path within the dataset. By default: path="".
+            content_as_pandas: bool, optional
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
+
+            Returns
+            -------
+            list[dict] | DataFrame | None
+                Content of the HTTP request as JSON or as pandas DataFrame if 'content_as_pandas=True'. None if some errors have occured.
+            int | None
+                Status of the HTTP request. None if some errors have occured.
+        """
+        url: str = self.session.API_PATH + "dataset/listing/"
+
+        post_body: dict = {
+            "internalID": internal_id,
+            "access": access,
+            "project": project,
+            "path": path,
+            "recursive": True,
+            "zone": zone
+        }
+
+        self.session.logging.debug(f"POST -- {url} -- PROGRESS")
+        status_solved: bool = False
+        content: list[dict] | DataFrame | None = None
+        req_status: int = -1
+        is_error: bool = True
+        try:
+            while not status_solved:
+                response: Response = req.post(url,
+                                              headers=self.session.API_HEADER,
+                                              json=post_body)
+                content = response.json()
+                req_status = response.status_code
+
+                status_solved, is_error = self.session.handle_request_status(req_status, 
+                                                                             content, 
+                                                                             f"POST -- {url}", 
+                                                                             self.suppress_print)
+
+            if not is_error and content_as_pandas:
+                content = convert_content_of_get_list_of_files_in_datasets_to_pandas(self.session, content, supress_print=self.suppress_print)
+
+                if content is None:
+                    is_error = True
+                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
+                    
+                    if not self.suppress_print:
+                        print(f"POST -- {url} -- DATAFRAME -- FAILED")
+                else:
+                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
+    
+        except json.decoder.JSONDecodeError:
+            is_error = True
+            self.session.logging.debug(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
+
+            if not self.suppress_print:
+                print(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
+
+        if is_error:
+            if self.suppress_print:
+                print("Some errors occurred. See log file, please.")
+            return None, None
+        else:
+            return content, req_status
         

@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py4lexis"
-version = "1.0.0"
+version = "1.1.0"
 description = "Provides functions to manage datasets within LEXIS platform."
 readme = "README.md"
 authors = [{ name = "Martin Golasowski", email = "martin.golasowski@vsb.cz" },
-           { name = "Ladislav Foltyn", email = "ladislav.foltyn@vsb.cz" }]
+           { name = "Ladislav Foltyn", email = "ladislav.foltyn@vsb.cz" },
+           { name = "Marek Nieslanik", email = "nie0067@vsb.cz" }]
 license = { file = "LICENSE" }
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -21,7 +22,8 @@ dependencies = [
     "python-keycloak==2.15.3",
     "python-irodsclient==1.1.7",
     "tomli==2.0.1",
-    "tuspy==1.0.0"
+    "tuspy==1.0.0",
+    "pandas==2.0.3"
 ]
 requires-python = ">=3.10"
 
