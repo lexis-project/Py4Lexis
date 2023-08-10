@@ -44,9 +44,9 @@ test:
 run:
   script:
     - pip install .
-  # artifacts:
-  #   paths:
-  #     - build/*
+  artifacts:
+    paths:
+      - build/*
 
 pages:
   script:
