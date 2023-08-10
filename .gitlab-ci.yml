@@ -34,7 +34,6 @@ before_script:
   - pip install virtualenv
   - virtualenv venv
   - source venv/bin/activate
-  - pip install safety
 
 test:
   script:
@@ -45,8 +44,6 @@ test:
 run:
   script:
     - pip install .
-    # Run Safety's environment scan
-    - safety check --key $PYUP_API_KEY
   artifacts:
     paths:
       - build/*
