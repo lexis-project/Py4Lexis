@@ -1,9 +1,17 @@
 
+from typing import Optional
 from py4lexis.session import LexisSession
 from pandas import DataFrame
 import json
 
-def printProgressBar(iteration: int, total: int, prefix: str="", suffix: str="", decimals: int=1, length: int=100, fill: str="█", printEnd: str="\r") -> None:
+def printProgressBar(iteration: int, 
+                     total: int, 
+                     prefix: Optional[str]="", 
+                     suffix: Optional[str]="", 
+                     decimals: Optional[int]=1, 
+                     length: Optional[int]=100, 
+                     fill: Optional[str]="█", 
+                     printEnd: Optional[str]="\r") -> None:
     """
         Call in a loop to create terminal progress bar. Source: https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
 
@@ -43,7 +51,7 @@ def printProgressBar(iteration: int, total: int, prefix: str="", suffix: str="",
 
 def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, 
                                                      content: list[dict], 
-                                                     supress_print: bool=False) -> DataFrame | None:
+                                                     supress_print: Optional[bool]=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET datasets status from JSON format to pandas DataFrame.
         
@@ -138,7 +146,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
 
 def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, 
                                                   content: list[dict],
-                                                  supress_print: bool=False) -> DataFrame | None:
+                                                  supress_print: Optional[bool]=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET all datasets from JSON format to pandas DataFrame.
         
@@ -304,6 +312,7 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
         return None
     else:
         return datasets_table
+    
     
 def convert_content_of_get_list_of_files_in_datasets_to_pandas() -> DataFrame:
     pass

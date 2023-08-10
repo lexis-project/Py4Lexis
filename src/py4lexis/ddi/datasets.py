@@ -1,10 +1,10 @@
 # datasets.py
 
+from typing import Optional
 import requests as req
 from requests import Response
 from datetime import date, datetime
 from py4lexis.ddi.tus_client import TusClient
-from py4lexis.exceptions import Py4LexisException
 from tusclient import exceptions
 from pandas import DataFrame
 from py4lexis.session import LexisSession
@@ -16,7 +16,9 @@ import json
 import time
 
 class Datasets:
-    def __init__(self, session: LexisSession, suppress_print: bool=True) -> None:
+    def __init__(self,
+                 session: LexisSession,
+                 suppress_print: Optional[bool]=True) -> None:
         """
             A class holds methods to manage datasets within LEXIS platform.
 
@@ -29,64 +31,84 @@ class Datasets:
 
             Methods
             -------
-            create_dataset(access: str, project: str, 
-                           push_method: str="empty", 
-                           zone: str="IT4ILexisZone",
-                           path: str="", 
-                           contributor: list[str]=["UNKNOWN contributor"], 
-                           creator: list[str]=["UNKNOWN creator"],
-                           owner: list[str]=["UNKNOWN owner"], 
-                           publicationYear: str=str(date.today().year),
-                           publisher: list[str]=["UNKNOWN publisher"], 
-                           resourceType: str=str("UNKNOWN resource type"),
-                           title: str=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]
+            create_dataset(access: str, 
+                           project: str, 
+                           push_method: Optional[str]="empty", 
+                           zone: Optional[str]="IT4ILexisZone",
+                           path: Optional[str]="", 
+                           contributor: Optional[list[str]]=["UNKNOWN contributor"], 
+                           creator: Optional[list[str]]=["UNKNOWN creator"],
+                           owner: Optional[list[str]]=["UNKNOWN owner"], 
+                           publicationYear: Optional[str]=str(date.today().year),
+                           publisher: Optional[list[str]]=["UNKNOWN publisher"], 
+                           resourceType: Optional[str]=str("UNKNOWN resource type"),
+                           title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]
                 Create an empty dataset with specified attributes.
 
-            tus_uploader(access: str, project: str, filename: str, 
-                         zone: str="IT4ILexisZone", 
-                         file_path: str="./",
-                         path: str="", 
-                         contributor: list[str]=["NONAME contributor"], 
-                         creator: list[str]=["NONAME creator"],
-                         owner: list[str]=["NONAME owner"], 
-                         publicationYear: str=str(date.today().year), 
-                         publisher: list[str]=["NONAME publisher"],
-                         resourceType: str="NONAME resource type", 
-                         title: str="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                         expand: str="no", 
-                         encryption: str="no") -> None
+            tus_uploader(access: str, 
+                         project: str, 
+                         filename: str, 
+                         zone: Optional[str]="IT4ILexisZone", 
+                         file_path: Optional[str]="./",
+                         path: Optional[str]="", 
+                         contributor: Optional[list[str]]=["NONAME contributor"], 
+                         creator: Optional[list[str]]=["NONAME creator"],
+                         owner: Optional[list[str]]=["NONAME owner"], 
+                         publicationYear: Optional[str]=str(date.today().year), 
+                         publisher: Optional[list[str]]=["NONAME publisher"],
+                         resourceType: Optional[str]="NONAME resource type", 
+                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                         expand: Optional[str]="no", 
+                         encryption: Optional[str]="no") -> None
                 Create a dataset and upload a data by TUS client.
 
-            get_dataset_status(content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]
+            get_dataset_status(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
                 Prints a table of the datasets' staging states.
 
-            get_all_datasets(content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]
+            get_all_datasets(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
                 Prints a table of the all existing datasets.
 
-            delete_dataset_by_id(internal_id: str, access: str, project: str) -> tuple[list[dict], int] | tuple[None, None]
+            delete_dataset_by_id(internal_id: str, 
+                                 access: str, 
+                                 project: str) -> tuple[list[dict], int] | tuple[None, None]
                 Deletes a dataset by a specified internalID.
 
-            download_dataset(acccess: str, project: str, internal_id: str, zone: str,
-                             path: str = "", destination_file: str = "./download.tar.gz") -> None:
+            download_dataset(acccess: str, 
+                             project: str, 
+                             internal_id: str, 
+                             zone: str,
+                             path: Optional[str]="",
+                             destination_file: Optional[str]="./download.tar.gz") -> None
                 Downloads dataset by a specified informtions as access, zone, project, Interna_Id.
                 It is possible to specify by path parameter which exact file in the dataset should be downloaded.
                 It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
+
+            get_list_of_files_in_dataset(self, 
+                                         internal_id: str, 
+                                         access: str,
+                                         project: str, 
+                                         zone: str, 
+                                         path: Optional[str]="",
+                                         content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame:
+                List all files within the dataset.
         """
         self.session = session
         self.suppress_print = suppress_print
 
 
-    def create_dataset(self, access: str, project: str, 
-                       push_method: str="empty", 
-                       zone: str="IT4ILexisZone",
-                       path: str="", 
-                       contributor: list[str]=["UNKNOWN contributor"], 
-                       creator: list[str]=["UNKNOWN creator"],
-                       owner: list[str]=["UNKNOWN owner"], 
-                       publicationYear: str=str(date.today().year),
-                       publisher: list[str]=["UNKNOWN publisher"], 
-                       resourceType: str=str("UNKNOWN resource type"),
-                       title: str=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]:
+    def create_dataset(self, 
+                       access: str, 
+                       project: str, 
+                       push_method: Optional[str]="empty", 
+                       zone: Optional[str]="IT4ILexisZone",
+                       path: Optional[str]="", 
+                       contributor: Optional[list[str]]=["UNKNOWN contributor"], 
+                       creator: Optional[list[str]]=["UNKNOWN creator"],
+                       owner: Optional[list[str]]=["UNKNOWN owner"], 
+                       publicationYear: Optional[str]=str(date.today().year),
+                       publisher: Optional[list[str]]=["UNKNOWN publisher"], 
+                       resourceType: Optional[str]=str("UNKNOWN resource type"),
+                       title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]:
         """
             Creates an empty dataset with specified attributes
 
@@ -154,13 +176,14 @@ class Datasets:
                         headers=self.session.API_HEADER,
                         json=post_body)
                     
-                content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
                                                                              f"POST -- {url} -- CREATE", 
-                                                                             self.suppress_print)            
+                                                                             self.suppress_print)  
+            if not is_error:
+                content = response.json()
         
         except json.decoder.JSONDecodeError:
             is_error = False
@@ -177,19 +200,22 @@ class Datasets:
             return content, req_status
     
 
-    def tus_uploader(self, access: str, project: str, filename: str, 
-                     zone: str="IT4ILexisZone", 
-                     file_path: str="./",
-                     path: str="", 
-                     contributor: list[str]=["NONAME contributor"], 
-                     creator: list[str]=["NONAME creator"],
-                     owner: list[str]=["NONAME owner"], 
-                     publicationYear: str=str(date.today().year), 
-                     publisher: list[str]=["NONAME publisher"],
-                     resourceType: str="NONAME resource type", 
-                     title: str="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                     expand: str="no", 
-                     encryption: str="no") -> None:
+    def tus_uploader(self, 
+                     access: str, 
+                     project: str, 
+                     filename: str, 
+                     zone: Optional[str]="IT4ILexisZone", 
+                     file_path: Optional[str]="./",
+                     path: Optional[str]="", 
+                     contributor: Optional[list[str]]=["NONAME contributor"], 
+                     creator: Optional[list[str]]=["NONAME creator"],
+                     owner: Optional[list[str]]=["NONAME owner"], 
+                     publicationYear: Optional[str]=str(date.today().year), 
+                     publisher: Optional[list[str]]=["NONAME publisher"],
+                     resourceType: Optional[str]="NONAME resource type", 
+                     title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                     expand: Optional[str]="no", 
+                     encryption: Optional[str]="no") -> None:
         """
             Upload a data by TUS client to the specified dataset.
 
@@ -277,7 +303,8 @@ class Datasets:
                 print("Some errors occurred. See log file, please.")
 
 
-    def get_dataset_status(self, content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
+    def get_dataset_status(self, 
+                           content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
         """
             Get datasets' status information.
 
@@ -304,16 +331,21 @@ class Datasets:
             while not status_solved:
                 response: Response = req.get(url,
                                              headers={"Authorization": "Bearer " + self.session.TOKEN})
-                content = response.json()
+                
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
                                                                              f"GET -- {url}", 
-                                                                             self.suppress_print)                
+                                                                             self.suppress_print)        
+                        
+            if not is_error:
+                    content = response.json()
 
             if not is_error and content_as_pandas:
-                content = convert_content_of_get_datasets_status_to_pandas(self.session, content, supress_print=self.suppress_print)
+                content = convert_content_of_get_datasets_status_to_pandas(self.session, 
+                                                                           content, 
+                                                                           supress_print=self.suppress_print)
 
                 if content is None:
                     is_error = True
@@ -339,7 +371,8 @@ class Datasets:
             return content, req_status
 
 
-    def get_all_datasets(self, content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
+    def get_all_datasets(self, 
+                         content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
         """
             Get all existing datasets
 
@@ -367,16 +400,21 @@ class Datasets:
                 response: Response = req.post(url,
                                               headers=self.session.API_HEADER,
                                               json={})
-                content = response.json()
+                
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
                                                                              f"POST -- {url}", 
                                                                              self.suppress_print)
+            
+            if not is_error:
+                content = response.json()
 
             if not is_error and content_as_pandas:
-                content = convert_content_of_get_all_datasets_to_pandas(self.session, content, supress_print=self.suppress_print)
+                content = convert_content_of_get_all_datasets_to_pandas(self.session, 
+                                                                        content, 
+                                                                        supress_print=self.suppress_print)
 
                 if content is None:
                     is_error = True
@@ -402,7 +440,10 @@ class Datasets:
             return content, req_status
 
 
-    def delete_dataset_by_id(self, internal_id: str, access: str, project: str) -> tuple[list[dict], int] | tuple[None, None]:
+    def delete_dataset_by_id(self, 
+                             internal_id: str, 
+                             access: str, 
+                             project: str) -> tuple[list[dict], int] | tuple[None, None]:
         """
             Deletes a dataset by a specified internalID.
 
@@ -440,13 +481,14 @@ class Datasets:
                                       headers=self.session.API_HEADER,
                                       json=delete_body)
                 
-                content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
                                                                              f"DELETE -- {url} -- ID:{internal_id}", 
                                                                              self.suppress_print)
+            if not is_error:
+                content = response.json()
 
         except json.decoder.JSONDecodeError:
             is_error = True
@@ -463,7 +505,12 @@ class Datasets:
             return content, req_status
     
 
-    def _ddi_submit_download(self, dataset_id: str, zone: str, access: str, project: str, path: str) -> str | None:
+    def _ddi_submit_download(self, 
+                             dataset_id: str, 
+                             zone: str, 
+                             access: str, 
+                             project: str, 
+                             path: str) -> str | None:
         """
             Private method to obtain 'requestID' for the dataset download.
 
@@ -502,7 +549,6 @@ class Datasets:
                                               headers=self.session.API_HEADER,
                                               json=download_body)
                 
-                content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
@@ -510,7 +556,8 @@ class Datasets:
                                                                              f"POST -- {url} -- DATA_ID:{dataset_id}", 
                                                                              self.suppress_print)
             
-            request_id: str = content["request_id"]
+            if not is_error:
+                request_id: str = content["request_id"]
 
         except json.decoder.JSONDecodeError:
             is_error = True
@@ -534,7 +581,8 @@ class Datasets:
             return request_id
             
 
-    def _ddi_get_download_status(self, request_id: str) -> dict:
+    def _ddi_get_download_status(self, 
+                                 request_id: str) -> dict:
         """
             Private method to get download status for the dataset downloading.
 
@@ -558,13 +606,15 @@ class Datasets:
             while not status_solved:
                 response: Response = req.get(url, headers=self.session.API_HEADER)
                 
-                content = response.json()
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
                                                                              content, 
                                                                              f"GET -- {url} -- REQ_ID:{request_id}", 
                                                                              self.suppress_print)
+
+            if not is_error:
+                content = response.json()
 
         except json.decoder.JSONDecodeError:
             is_error = True
@@ -581,7 +631,10 @@ class Datasets:
             return content      
 
 
-    def _ddi_download_dataset(self, request_id: str, destination_file: str, progress_func: callable = None) -> None:
+    def _ddi_download_dataset(self, 
+                              request_id: str, 
+                              destination_file: str, 
+                              progress_func: callable = None) -> None:
         """
             Private method providing download of the dataset.
 
@@ -618,9 +671,9 @@ class Datasets:
                 else:
                     content = response.json()
                     status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                                content, 
-                                                                                f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD", 
-                                                                                self.suppress_print)
+                                                                                 content, 
+                                                                                 f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD", 
+                                                                                 self.suppress_print)
             
             # File ready, start downloading
             total_length = response.headers.get("content-length")
@@ -708,8 +761,13 @@ class Datasets:
         '''
 
 
-    def download_dataset(self, acccess: str, project: str, internal_id: str, zone: str,
-                         path: str = "", destination_file: str = "./download.tar.gz") -> None:
+    def download_dataset(self, 
+                         acccess: str, 
+                         project: str, 
+                         internal_id: str, 
+                         zone: str,
+                         path: Optional[str]="",
+                         destination_file: Optional[str]="./download.tar.gz") -> None:
         """
             Downloads dataset by a specified information as access, zone, project, InternalID.
             It is possible to specify by path parameter which exact file in the dataset should be downloaded.
@@ -736,8 +794,10 @@ class Datasets:
         """
 
         down_request = self._ddi_submit_download(dataset_id=internal_id, 
-                                                 zone=zone, access=acccess,
-                                                 project=project, path=path)
+                                                 zone=zone, 
+                                                 access=acccess,
+                                                 project=project, 
+                                                 path=path)
 
         # Wait until it is ready
         retries_max: int = 200
@@ -779,9 +839,13 @@ class Datasets:
                 print("Some errors occurred. See log file, please.")
 
 
-    def get_list_of_files_in_dataset(self, internal_id: str, access: str,
-                                     project: str, zone: str, path: str="",
-                                     content_as_pandas: bool=False) -> dict[str] | DataFrame:
+    def get_list_of_files_in_dataset(self, 
+                                     internal_id: str, 
+                                     access: str,
+                                     project: str, 
+                                     zone: str, 
+                                     path: Optional[str]="",
+                                     content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame:
         """
             List all files within the dataset.
 
@@ -828,7 +892,7 @@ class Datasets:
                 response: Response = req.post(url,
                                               headers=self.session.API_HEADER,
                                               json=post_body)
-                content = response.json()
+                
                 req_status = response.status_code
 
                 status_solved, is_error = self.session.handle_request_status(req_status, 
@@ -836,8 +900,13 @@ class Datasets:
                                                                              f"POST -- {url}", 
                                                                              self.suppress_print)
 
+            if not is_error:
+                content = response.json()
+
             if not is_error and content_as_pandas:
-                content = convert_content_of_get_list_of_files_in_datasets_to_pandas(self.session, content, supress_print=self.suppress_print)
+                content = convert_content_of_get_list_of_files_in_datasets_to_pandas(self.session, 
+                                                                                     content, 
+                                                                                     supress_print=self.suppress_print)
 
                 if content is None:
                     is_error = True

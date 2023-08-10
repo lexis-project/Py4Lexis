@@ -1,9 +1,8 @@
 # datasets.py
 
-import json
+from typing import Optional
 from py4lexis.session import LexisSession
 from py4lexis.ddi.datasets import Datasets
-from py4lexis.exceptions import Py4LexisException
 from py4lexis.utils import printProgressBar
 from datetime import date, datetime
 from pandas import DataFrame
@@ -14,7 +13,9 @@ from tabulate import tabulate
 
 
 class DatasetsCLI:
-    def __init__(self, session: LexisSession, print_content: bool=False):
+    def __init__(self, 
+                 session: LexisSession, 
+                 print_content: Optional[bool]=False):
         """
             A class holds methods to manage datasets within LEXIS platform using INTERACTIVE mode.
 
@@ -27,48 +28,61 @@ class DatasetsCLI:
 
             Methods
             -------
-            create_dataset(access: str, project: str, 
-                           push_method: str="empty", 
-                           zone: str="IT4ILexisZone",
-                           path: str="", 
-                           contributor: list[str]=["UNKNOWN contributor"], 
-                           creator: list[str]=["UNKNOWN creator"],
-                           owner: list[str]=["UNKNOWN owner"], 
-                           publicationYear: str=str(date.today().year),
-                           publisher: list[str]=["UNKNOWN publisher"], 
-                           resourceType: str=str("UNKNOWN resource type"),
-                           title: str=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> None
+            create_dataset(access: str, 
+                           project: str, 
+                           push_method: Optional[str]="empty", 
+                           zone: Optional[str]="IT4ILexisZone",
+                           path: Optional[str]="", 
+                           contributor: Optional[list[str]]=["UNKNOWN contributor"], 
+                           creator: Optional[list[str]]=["UNKNOWN creator"],
+                           owner: Optional[list[str]]=["UNKNOWN owner"], 
+                           publicationYear: Optional[str]=str(date.today().year),
+                           publisher: Optional[list[str]]=["UNKNOWN publisher"], 
+                           resourceType: Optional[str]=str("UNKNOWN resource type"),
+                           title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> None
                 Create an empty dataset with specified attributes.
 
-            tus_uploader(access: str, project: str, filename: str, 
-                         zone: str="IT4ILexisZone", 
-                         file_path: str="./",
-                         path: str="", 
-                         contributor: list[str]=["NONAME contributor"], 
-                         creator: list[str]=["NONAME creator"],
-                         owner: list[str]=["NONAME owner"], 
-                         publicationYear: str=str(date.today().year), 
-                         publisher: list[str]=["NONAME publisher"],
-                         resourceType: str="NONAME resource type", 
-                         title: str="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                         expand: str="no", 
-                         encryption: str="no") -> None
+            tus_uploader(access: str, 
+                         project: str, 
+                         filename: str, 
+                         zone: Optional[str]="IT4ILexisZone", 
+                         file_path: Optional[str]="./",
+                         path: Optional[str]="", 
+                         contributor: Optional[list[str]]=["NONAME contributor"], 
+                         creator: Optional[list[str]]=["NONAME creator"],
+                         owner: Optional[list[str]]=["NONAME owner"], 
+                         publicationYear: Optional[str]=str(date.today().year), 
+                         publisher: Optional[list[str]]=["NONAME publisher"],
+                         resourceType: Optional[str]="NONAME resource type", 
+                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                         expand: Optional[str]="no", 
+                         encryption: Optional[str]="no") -> None
                 Create a dataset and upload a data by TUS client.
 
-            get_dataset_status(filter_filename: str="", filter_project: str="", filter_task_state="") -> None
+            get_dataset_status(filter_filename: Optional[str]="", 
+                               filter_project: Optional[str]="", 
+                               filter_task_state: Optional[str]="") -> None
                 Prints datasets with status into table. Is possible to use filters to get filtered table by
                 filename, project, task_status.
 
-            get_all_datasets(filter_title: str=None, filter_access: str=None, 
-                             filter_project: str=None, filter_zone: str=None) -> None
+            get_all_datasets(filter_title: Optional[str]="",
+                             filter_access: Optional[str]="", 
+                             filter_project: Optional[str]="", 
+                             filter_zone: Optional[str]="") -> None
                 Prints a table of the all existing datasets. Is possible to use filters to get filtered table by
                 title, access, zone, project.
 
-            delete_dataset_by_id(internal_id: str, access: str, project: str) -> None
+            delete_dataset_by_id(internal_id: str, 
+                                 access: str, 
+                                 project: str) -> None
                 Deletes a dataset by a specified internalID.
 
-            download_dataset(acccess: str, project: str, internal_id: str, zone:str,
-                             path: str = "", destination_file: str = "./download.tar.gz") -> None
+            download_dataset(acccess: str,
+                             project: str,
+                             internal_id: str,
+                             zone:str,
+                             path: Optional[str] = "",
+                             destination_file: Optional[str] = "./download.tar.gz") -> None
                 Downloads dataset by a specified informtions as access, zone, project, InternalID.
                 It is possible to specify by path parameter which exact file in the dataset should be downloaded.
                 It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
@@ -78,17 +92,19 @@ class DatasetsCLI:
         self.datasets: Datasets = Datasets(session, suppress_print=False)
 
 
-    def create_dataset(self, access: str, project: str, 
-                       push_method: str="empty", 
-                       zone: str="IT4ILexisZone",
-                       path: str="", 
-                       contributor: list[str]=["UNKNOWN contributor"], 
-                       creator: list[str]=["UNKNOWN creator"],
-                       owner: list[str]=["UNKNOWN owner"], 
-                       publicationYear: str=str(date.today().year),
-                       publisher: list[str]=["UNKNOWN publisher"], 
-                       resourceType: str=str("UNKNOWN resource type"),
-                       title: str=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> None:
+    def create_dataset(self, 
+                       access: str, 
+                       project: str, 
+                       push_method: Optional[str]="empty", 
+                       zone: Optional[str]="IT4ILexisZone",
+                       path: Optional[str]="", 
+                       contributor: Optional[list[str]]=["UNKNOWN contributor"], 
+                       creator: Optional[list[str]]=["UNKNOWN creator"],
+                       owner: Optional[list[str]]=["UNKNOWN owner"], 
+                       publicationYear: Optional[str]=str(date.today().year),
+                       publisher: Optional[list[str]]=["UNKNOWN publisher"], 
+                       resourceType: Optional[str]=str("UNKNOWN resource type"),
+                       title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> None:
         """
             Creates an empty dataset with specified attributes
 
@@ -138,19 +154,22 @@ class DatasetsCLI:
             print(f"Some error occurred while creating dataset. See log file, please.")
 
 
-    def tus_uploader(self, access: str, project: str, filename: str, 
-                     zone: str="IT4ILexisZone", 
-                     file_path: str="./",
-                     path: str="", 
-                     contributor: list[str]=["NONAME contributor"], 
-                     creator: list[str]=["NONAME creator"],
-                     owner: list[str]=["NONAME owner"], 
-                     publicationYear: str=str(date.today().year), 
-                     publisher: list[str]=["NONAME publisher"],
-                     resourceType: str="NONAME resource type", 
-                     title: str="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                     expand: str="no", 
-                     encryption: str="no") -> None:
+    def tus_uploader(self, 
+                     access: str, 
+                     project: str, 
+                     filename: str, 
+                     zone: Optional[str]="IT4ILexisZone", 
+                     file_path: Optional[str]="./",
+                     path: Optional[str]="", 
+                     contributor: Optional[list[str]]=["NONAME contributor"], 
+                     creator: Optional[list[str]]=["NONAME creator"],
+                     owner: Optional[list[str]]=["NONAME owner"], 
+                     publicationYear: Optional[str]=str(date.today().year), 
+                     publisher: Optional[list[str]]=["NONAME publisher"],
+                     resourceType: Optional[str]="NONAME resource type", 
+                     title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                     expand: Optional[str]="no", 
+                     encryption: Optional[str]="no") -> None:
         """
             Upload a data by TUS client to a new specified dataset.
 
@@ -193,7 +212,7 @@ class DatasetsCLI:
         """
 
         print(f"Initialising TUS upload:\n"+
-              f"    filename: of {filename}\n"+
+              f"    filename: {filename}\n"+
               f"    access: {access}\n"+
               f"    project: {project}\n"+
               f"    zone: {zone}")
@@ -201,7 +220,10 @@ class DatasetsCLI:
                                    publisher, resourceType, title, expand, encryption)
 
 
-    def get_dataset_status(self, filter_filename: str="", filter_project: str="", filter_task_state="") -> None:
+    def get_dataset_status(self, 
+                           filter_filename: Optional[str]="", 
+                           filter_project: Optional[str]="", 
+                           filter_task_state: Optional[str]="") -> None:
         """
             Prints datasets with status into table. Is possible to use filters to get filtered table by
             filename, project, task_status.
@@ -220,9 +242,9 @@ class DatasetsCLI:
         content, req_status = self.datasets.get_dataset_status(content_as_pandas=True)
         if req_status is not None:
             try:
-                print(f"Formatting response into ASCII table...")
+                print(f"Formatting pandas DataFrame into ASCII table...")
                 
-                cols: list[str] = ["Filename", "Project", "TaskState", "TaskResult", "TransferType"]
+                cols: list[str] = ["Filename", "Project", "TaskState", "DatasetID", "TransferType"]
                 datasets_table: DataFrame = content[cols]
 
                 if filter_filename != "":
@@ -242,8 +264,11 @@ class DatasetsCLI:
             print(f"Some error occurred while creating dataset. See log file, please.")
 
 
-    def get_all_datasets(self, filter_title: str="", filter_access: str="", 
-                         filter_project: str="", filter_zone: str="") -> None:
+    def get_all_datasets(self, 
+                         filter_title: Optional[str]="",
+                         filter_access: Optional[str]="", 
+                         filter_project: Optional[str]="", 
+                         filter_zone: Optional[str]="") -> None:
         """
             Prints a table of the all existing datasets. Is possible to use filters to get filtered table by
             title, access, zone, project.
@@ -264,7 +289,7 @@ class DatasetsCLI:
         content, req_status = self.datasets.get_all_datasets(content_as_pandas=True)
         if req_status is not None:
             try:
-                print(f"Formatting pandas DataFrame from response into ASCII table...")
+                print(f"Formatting pandas DataFrame into ASCII table...")
                 
                 cols: list[str] = ["Title", "Access", "Project", "Zone", "InternalID", "CreationDate"]
                 datasets_table: DataFrame = content[cols]
@@ -289,7 +314,10 @@ class DatasetsCLI:
             print(f"Some error occurred while creating dataset. See log file, please.")
 
 
-    def delete_dataset_by_id(self, internal_id: str, access: str, project: str) -> None:
+    def delete_dataset_by_id(self, 
+                             internal_id: str, 
+                             access: str, 
+                             project: str) -> None:
         """
             Deletes a dataset by a specified internalID.
 
@@ -316,8 +344,13 @@ class DatasetsCLI:
             print(f"Some error occurred. See log file, please.")
 
 
-    def download_dataset(self, acccess: str, project: str, internal_id: str, zone:str,
-                         path: str = "", destination_file: str = "./download.tar.gz") -> None:
+    def download_dataset(self, 
+                         acccess: str,
+                         project: str,
+                         internal_id: str,
+                         zone:str,
+                         path: Optional[str] = "",
+                         destination_file: Optional[str] = "./download.tar.gz") -> None:
         """
             Downloads dataset by a specified information as access, zone, project, InternalID.
             It is possible to specify by path parameter which exact file in the dataset should be downloaded.
@@ -383,3 +416,63 @@ class DatasetsCLI:
         if not is_error:
             print("Dataset download -- SUCCESS!")
 
+
+    def get_list_of_files_in_dataset(self, 
+                                     internal_id: str, 
+                                     access: str,
+                                     project: str, 
+                                     zone: str,
+                                     filter_filename: Optional[str]="", 
+                                     filter_project: Optional[str]="", 
+                                     filter_task_state: Optional[str]="") -> None:
+        """
+            List all files within the dataset.
+
+            Parameters
+            ----------
+            internal_id : str
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
+            access : str
+                Access of the dataset. One of ["user", "project", "public"]. Can be obtain by get_all_datasets() method.
+            project : str
+                Project's short name in which the dataset is stored. Can be obtain by get_all_datasets() method.
+            zone : str
+                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
+            path : str, optional
+                Path within the dataset. By default: path="".
+            content_as_pandas: bool, optional
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
+
+            Returns
+            -------
+            None
+        """
+
+        print(f"Retrieving data of the datasets...")
+        content, req_status = self.datasets.get_list_of_files_in_dataset(internal_id, 
+                                                                         access,
+                                                                         project, 
+                                                                         zone, 
+                                                                         content_as_pandas=True)
+        if req_status is not None:
+            try:
+                print(f"Formatting pandas DataFrame into ASCII table...")
+                
+                cols: list[str] = ["Filename", "Project", "TaskState", "DatasetID", "TransferType"]
+                datasets_table: DataFrame = content[cols]
+
+                if filter_filename != "":
+                    datasets_table = datasets_table[datasets_table["Filename"] == filter_filename]
+
+                if filter_project != "":
+                    datasets_table = datasets_table[datasets_table["Project"] == filter_project]
+
+                if filter_task_state != "":
+                    datasets_table = datasets_table[datasets_table["TaskState"] == filter_task_state]
+
+                print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
+
+            except KeyError as kerr:
+                print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
+        else:
+            print(f"Some error occurred while creating dataset. See log file, please.")

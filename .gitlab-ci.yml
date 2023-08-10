@@ -1,6 +1,6 @@
 stages:
   - test
-  - security_report
+  # - security_report
 
 # include:
 #   - template: Security/SAST.gitlab-ci.yml
@@ -53,15 +53,15 @@ secret_detection:
   artifacts:
     paths: [gl-secret-detection-report.json]
 
-security_report:
-  stage: security_report
-  variables:
-    GIT_STRATEGY: none
-  dependencies:
-    - semgrep-sast
-    - secret_detection
-  script:
-    - ls
+#security_report:
+#  stage: security_report
+#  variables:
+#    GIT_STRATEGY: none
+#  dependencies:
+#    - semgrep-sast
+#    - secret_detection
+#  script:
+#    - ls
 
 run:
   script:

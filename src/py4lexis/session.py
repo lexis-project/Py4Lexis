@@ -1,7 +1,6 @@
 import logging
+from typing import Optional
 import requests as req
-import time
-import json
 
 try:
     import tomllib
@@ -9,12 +8,14 @@ except ModuleNotFoundError:
     import tomli as tomllib
 
 from keycloak import KeycloakOpenID
-from keycloak.exceptions import KeycloakGetError, KeycloakPostError
+from keycloak.exceptions import KeycloakPostError
 
 
 class LexisSession:
 
-    def __init__(self, config_file: str, log_file: str="./lexis_logs.log"):
+    def __init__(self, 
+                 config_file: str, 
+                 log_file: Optional[str]="./lexis_logs.log") -> None:
         """
             A class holds an LEXIS API SESSION.
 
@@ -22,7 +23,7 @@ class LexisSession:
             ----------
             config_file : str, 
                 path to a config file
-            log_file : str, 
+            log_file : str, optional
                 path to a log file. DEFAULT: "./lexis_logs.log"
 
             Methods
@@ -103,7 +104,12 @@ class LexisSession:
             print(f"Some errors occurred. See log file, please.")
 
 
-    def _set_tokens(self, pwd: str, client_id: str, client_secret: str, realm: str, keycloak_url: str) -> None:
+    def _set_tokens(self, 
+                    pwd: str, 
+                    client_id: str, 
+                    client_secret: str, 
+                    realm: str, 
+                    keycloak_url: str) -> None:
         """
             Set user's access and refresh tokens from keycloak based on defined username + password.
 
@@ -196,7 +202,11 @@ class LexisSession:
         else:
             return True
         
-    def handle_request_status(self, req_status: int, content: dict, log_msg: str, suppress_print: bool=True) -> tuple[bool, bool]:
+    def handle_request_status(self, 
+                              req_status: int, 
+                              content: dict, 
+                              log_msg: str, 
+                              suppress_print: Optional[bool]=True) -> tuple[bool, bool]:
         """
             Method which handles request status. If token is invalid then it tries to refresh it.
 
@@ -208,7 +218,7 @@ class LexisSession:
                 Content of the HTTP request in JSON format
             log_msg : str
                 Message for the logger.
-            suppress_print : bool
+            suppress_print : bool, optional
                 If True, the errors prints to console will be suppressed.
             
             Returns
@@ -244,7 +254,7 @@ class LexisSession:
                     status_solved = True
                     is_error = True
                     self.logging.debug(log_msg + f" -- Bad request status: '{req_status}' -- FAILED")
-                    self.logging.debug(json.dumps(content, indent=4))
+                    self.logging.debug(content)
 
                     if not suppress_print:
                         print(log_msg + f" -- Bad request status: '{req_status}' -- FAILED")
@@ -252,7 +262,7 @@ class LexisSession:
                 status_solved = True
                 is_error = True
                 self.logging.debug(log_msg + f" -- Bad request status: '{req_status}' -- FAILED")
-                self.logging.debug(json.dumps(content, indent=4))
+                self.logging.debug(content)
 
                 if not suppress_print:
                     print(log_msg + f" -- Bad request status: '{req_status}' -- FAILED") 
