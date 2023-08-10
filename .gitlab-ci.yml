@@ -1,9 +1,14 @@
-include:
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
-
 stages:
-    - test
+  - test
+  - security_report
+
+# include:
+#   - template: Security/SAST.gitlab-ci.yml
+#   - template: Security/Secret-Detection.gitlab-ci.yml
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/Container-Scanning.gitlab-ci.yml
 
 # To contribute improvements to CI/CD templates, please follow the Development guide at:
 # https://docs.gitlab.com/ee/development/cicd/templates.html
@@ -40,6 +45,25 @@ test:
     - pip install ruff tox  # you can also use tox
     - pip install --editable ".[test]"
     - tox -e py,ruff
+
+semgrep-sast:
+  artifacts:
+    paths: [gl-sast-report.json]
+
+secret_detection:
+  artifacts:
+    paths: [gl-secret-detection-report.json]
+
+security_report:
+  stage: security_report
+  variables:
+    GIT_STRATEGY: none
+  dependencies:
+    - semgrep-sast
+    - secret_detection
+    - container_scanning
+  script:
+    - ls
 
 run:
   script:
