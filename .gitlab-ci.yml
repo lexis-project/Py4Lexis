@@ -54,8 +54,8 @@ pages:
     - cd doc
     - make html
     - mv build/html/ ../public/
-  artifacts:
-    paths:
-      - public
+  # artifacts:
+  #   paths:
+  #     - public
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
