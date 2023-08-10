@@ -44,9 +44,9 @@ test:
 run:
   script:
     - pip install .
-  artifacts:
-    paths:
-      - build/*
+  # artifacts:
+  #   paths:
+  #     - build/*
 
 pages:
   script:
@@ -54,8 +54,8 @@ pages:
     - cd doc
     - make html
     - mv build/html/ ../public/
-  # artifacts:
-  #   paths:
-  #     - public
+  artifacts:
+    paths:
+      - public
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
