@@ -1,9 +1,9 @@
 include:
   - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.latest.gitlab-ci.yml
 
 stages:
     - test
-    - Compliance
 
 # To contribute improvements to CI/CD templates, please follow the Development guide at:
 # https://docs.gitlab.com/ee/development/cicd/templates.html
@@ -18,13 +18,6 @@ image: python:latest
 # only cache local items.
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-  # Setting this variable will affect all Security templates
-  # (SAST, Dependency Scanning, ...)
-  TEMPLATE_REGISTRY_HOST: 'registry.gitlab.com'
-  SECURE_ANALYZERS_PREFIX: "$CI_TEMPLATE_REGISTRY_HOST/security-products"
-  SAST_IMAGE_SUFFIX: ""
-
-  SAST_EXCLUDED_PATHS: "spec, test, tests, tmp"
 
 # Pip's cache doesn't store the python packages
 # https://pip.pypa.io/en/stable/topics/caching/
@@ -66,49 +59,3 @@ pages:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-iac-sast:
-  stage: test
-  artifacts:
-    name: sast
-    paths:
-      - gl-sast-report.json
-    when: always
-  rules:
-    - when: never
-  # `rules` must be overridden explicitly by each child job
-  # see https://gitlab.com/gitlab-org/gitlab/-/issues/218444
-  variables:
-    SEARCH_MAX_DEPTH: 4
-  allow_failure: true
-  script:
-    - /analyzer run
-
-kics-iac-sast:
-  extends: iac-sast
-  image:
-    name: "$SAST_ANALYZER_IMAGE"
-  variables:
-    SAST_ANALYZER_IMAGE_TAG: 4
-    SAST_ANALYZER_IMAGE: "$SECURE_ANALYZERS_PREFIX/kics:$SAST_ANALYZER_IMAGE_TAG$SAST_IMAGE_SUFFIX"
-  rules:
-    - if: $SAST_DISABLED == 'true' || $SAST_DISABLED == '1'
-      when: never
-    - if: $SAST_EXCLUDED_ANALYZERS =~ /kics/
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"  # Add the job to merge request pipelines if there's an open merge request.
-    - if: $CI_OPEN_MERGE_REQUESTS  # Don't add it to a *branch* pipeline if it's already in a merge request pipeline.
-      when: never
-    - if: $CI_COMMIT_BRANCH  # If there's no open merge request, add it to a *branch* pipeline instead.
-
-Enforce Compliance:
-  stage: Compliance
-  before_script:
-    - apk add jq
-  script:
-    - jq -r '.vulnerabilities[] | select(.severity == "Critical") | (.severity, .message, .location, .identifiers[].url)' gl-sast-report.json > results.txt
-    - jq -r '.vulnerabilities[] | select(.severity == "High") | (.severity, .message, .location, .identifiers[].url)' gl-sast-report.json >> results.txt
-    - jq -r '.vulnerabilities[] | select(.severity == "Medium") | (.severity, .message, .location, .identifiers[].url)' gl-sast-report.json >> results.txt
-    - chmod u+x check-sast-results.sh
-    - ./check-sast-results.sh
-
