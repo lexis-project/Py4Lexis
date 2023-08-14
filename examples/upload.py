@@ -2,7 +2,7 @@ from py4lexis.session import LexisSession
 from py4lexis.cli.datasets import DatasetsCLI
 
 # Init session with config file
-session = LexisSession(config_file="config.toml")
+session = LexisSession(config_file="./config.toml")
 # session.refresh_token()
 
 # Get Datasets manager

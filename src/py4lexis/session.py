@@ -70,12 +70,12 @@ class LexisSession:
             self.ZONENAME: str = str(_cfg["config"]["ZONENAME"])
 
             _ddi_endpoint_url: str = str(_cfg["config"]["DDI_ENDPOINT_URL"])
-            if not _ddi_endpoint_url[-1] == "/":
-                _ddi_endpoint_url = _ddi_endpoint_url + "/"
+            if _ddi_endpoint_url[-1] == "/":
+                _ddi_endpoint_url = _ddi_endpoint_url[:-1]
 
             # create api url path
             self.DDI_ENDPOINT_URL = _ddi_endpoint_url
-            self.API_PATH = self.DDI_ENDPOINT_URL + "api/v0.2/"
+            self.API_PATH = self.DDI_ENDPOINT_URL + "/api/v0.2"
             self.logging.debug(f"Reading {config_file} -- OK")
 
             # check url if valid
