@@ -1,8 +1,9 @@
 from py4lexis.session import LexisSession
 from py4lexis.cli.datasets import DatasetsCLI
+import os
 
 # Init session with config file
-session = LexisSession(config_file="./config.toml")
+session = LexisSession(config_file="config.toml")
 # session.refresh_token()
 
 # Get Datasets manager
@@ -18,10 +19,12 @@ ds = DatasetsCLI(session)
 # ds.get_dataset_status()
 
 # List all datasets
-dsets = ds.get_all_datasets(filter_access="project", filter_project="demoproject")
-ds.get_list_of_files_in_dataset(internal_id="42d2ca92-90fe-11ed-bb11-fa163e515f81", 
+#dsets = ds.get_all_datasets(filter_access="project", filter_project="demoproject")
+
+# List all files in dataset
+ds.get_list_of_files_in_dataset(internal_id="0e79c1f6-3757-11ee-885e-fa163e515f81", 
                                 access="project",
-                                project="EVEREST_Weather", 
+                                project="demoproject", 
                                 zone="IT4ILexisZone")
 
 

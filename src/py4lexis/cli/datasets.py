@@ -231,14 +231,14 @@ class DatasetsCLI:
             Parameters
             ----------
             filter_filename : str, optional
-                To filter table of datasets by filename. By default: "".
+                To filter table of datasets by filename. By default: "" (i.e. filter is off).
             filter_project : str, optional
-                To filter table of datasets by project. By default: "".
+                To filter table of datasets by project. By default: "" (i.e. filter is off).
             filter_task_state : str, optional
-                To filter table of datasets by task_state. One of ["PENDING", "SUCCESS"]. By default: "".
+                To filter table of datasets by task_state. One of ["PENDING", "SUCCESS"]. By default: "" (i.e. filter is off).
         """
 
-        print(f"Retrieving data of the datasets...")
+        print(f"Retrieving data of status of the datasets...")
         content, req_status = self.datasets.get_dataset_status(content_as_pandas=True)
         if req_status is not None:
             try:
@@ -276,13 +276,13 @@ class DatasetsCLI:
             Parameters
             ----------
             filter_title : str, optional
-                To filter table of datasets by title. By default: "".
+                To filter table of datasets by title. By default: "" (i.e. filter is off).
             filter_access : str, optional
-                To filter table of datasets by access. By default: "".
+                To filter table of datasets by access. By default: "" (i.e. filter is off).
             filter_project : str, optional
-                To filter table of datasets by project. By default: "".
+                To filter table of datasets by project. By default: "" (i.e. filter is off).
             filter_zone : str, optional
-                To filter table of datasets by title. By default: "".
+                To filter table of datasets by title. By default: "" (i.e. filter is off).
         """
 
         print(f"Retrieving data of the datasets...")
@@ -294,16 +294,16 @@ class DatasetsCLI:
                 cols: list[str] = ["Title", "Access", "Project", "Zone", "InternalID", "CreationDate"]
                 datasets_table: DataFrame = content[cols]
 
-                if filter_title is not None:
+                if filter_title != "":
                     datasets_table = datasets_table[datasets_table["Title"] == filter_title]
                 
-                if filter_access is not None:
+                if filter_access != "":
                     datasets_table = datasets_table[datasets_table["Access"] == filter_access]
 
-                if filter_project is not None:
+                if filter_project != "":
                     datasets_table = datasets_table[datasets_table["Project"] == filter_project]
 
-                if filter_zone is not None:
+                if filter_zone != "":
                     datasets_table = datasets_table[datasets_table["Zone"] == filter_zone]
 
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
@@ -423,8 +423,10 @@ class DatasetsCLI:
                                      project: str, 
                                      zone: str,
                                      filter_filename: Optional[str]="", 
-                                     filter_project: Optional[str]="", 
-                                     filter_task_state: Optional[str]="") -> None:
+                                     filename_compare_type: Optional[str]="",
+                                     filter_size: Optional[int]=0,
+                                     size_compare_type: Optional[str]="eq", 
+                                     filter_type: Optional[str]="") -> None:
         """
             List all files within the dataset.
 
@@ -438,17 +440,32 @@ class DatasetsCLI:
                 Project's short name in which the dataset is stored. Can be obtain by get_all_datasets() method.
             zone : str
                 iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
-            path : str, optional
-                Path within the dataset. By default: path="".
-            content_as_pandas: bool, optional
-                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
+            filter_filename : str, optional
+                To filter table of files by name. By default: "" (i.e. filter is off).
+            filename_compare_type : str, optional
+                Type of comparison for filtering by filename. One of ["eq", "in"].
+                "eq" => filter filename == filename in table,
+                "in" => filter filename 'in' filename in table (part of filename in table).
+                By default: "eq".
+            filter_size : int, optional
+                To filter table of files by size. By default: 0 (i.e. filter is off).
+            size_compare_type : str, optional
+                Type of comparison for filtering by size. One of ["eq", "l", "leq", "g", "geq"].
+                "eq" => filter size == size in table,
+                "l" => filter size < size in table,
+                "leq" => filter size <= size in table,
+                "g" => filter size > size in table,
+                "geq" => filter size >= size in table.
+                By default: "eq".
+            filter_type : str, optional
+                To filter table of files by type. By default: "" (i.e. filter is off).
 
             Returns
             -------
             None
         """
 
-        print(f"Retrieving data of the datasets...")
+        print(f"Retrieving data of files in the dataset...")
         content, req_status = self.datasets.get_list_of_files_in_dataset(internal_id, 
                                                                          access,
                                                                          project, 
@@ -458,17 +475,32 @@ class DatasetsCLI:
             try:
                 print(f"Formatting pandas DataFrame into ASCII table...")
                 
-                cols: list[str] = ["Filename", "Project", "TaskState", "DatasetID", "TransferType"]
-                datasets_table: DataFrame = content[cols]
+                cols: list[str] = ["Filename", "Size", "Type", "CreateTime", "Checksum"]
+                datasets_table: DataFrame = content
 
                 if filter_filename != "":
-                    datasets_table = datasets_table[datasets_table["Filename"] == filter_filename]
-
-                if filter_project != "":
-                    datasets_table = datasets_table[datasets_table["Project"] == filter_project]
-
-                if filter_task_state != "":
-                    datasets_table = datasets_table[datasets_table["TaskState"] == filter_task_state]
+                    if filename_compare_type == "eq":
+                        datasets_table = datasets_table[datasets_table["Filename"] == filter_filename]
+                    elif filename_compare_type == "in":
+                        datasets_table = datasets_table[filter_filename in datasets_table["Filename"]]
+                    else:
+                        print("Wrong comparison type for filename.")
+                        ["Filename", "Size", "Type", "CreationTime", "Checksum"]
+                if filter_size > 0:
+                    if size_compare_type == "eq":
+                        datasets_table = datasets_table[datasets_table["Size"] == filter_size]
+                    elif size_compare_type == "l":
+                        datasets_table = datasets_table[datasets_table["Size"] < filter_size]
+                    elif size_compare_type == "leq":
+                        datasets_table = datasets_table[datasets_table["Size"] <= filter_size]
+                    elif size_compare_type == "g":
+                        datasets_table = datasets_table[datasets_table["Size"] > filter_size]
+                    elif size_compare_type == "geq":
+                        datasets_table = datasets_table[datasets_table["Size"] >= filter_size]
+                    else:
+                        print("Wrong comparison type for filesize.")
+                else:
+                    print("Filesize cannot be negative.")
 
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 

@@ -314,5 +314,82 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
         return datasets_table
     
     
-def convert_content_of_get_list_of_files_in_datasets_to_pandas() -> DataFrame:
-    pass
+def convert_content_of_get_list_of_files_in_datasets_to_pandas(session: LexisSession, 
+                                                               content: list[dict],
+                                                               supress_print: Optional[bool]=False) -> DataFrame | None:
+    """
+        Convert HTTP response content of GET list of files in dataset from JSON format to pandas DataFrame.
+        
+        Parameters
+        ----------
+        session : LexisSession
+            Current Lexis Session.
+        content : list[str]
+            HTTP response content.
+        suppress_print : bool, optional
+            If True all prints are suppressed.
+
+        Return
+        ------
+        DataFrame | None
+            List of files in dataset formated into DataFrame table. None is returned when some errors have occured.
+    """
+
+    cols: list[str] = ["Filename", "Size", "Type", "CreateTime", "Checksum"]
+    
+    datasets_table: DataFrame = DataFrame(columns=cols)
+
+    is_error: bool = False
+    try:
+        session.logging.debug(f"Converting HTTP content from JSON to pandas Dataframe -- PROGRESS")
+
+        if not supress_print:
+            print(f"Converting HTTP content from JSON to pandas Dataframe...")
+
+        content = content["contents"]
+        for i in range(len(content)):
+            if "name" in content[i]:
+                filename: str = content[i]["name"]
+            else:
+                filename: str = str("UKNOWN Name")
+
+            size: int | str = ""
+            if "size" in content[i]:
+                size = int(content[i]["size"])
+            else:
+                size = str("UKNOWN Size")                
+
+            if "type" in content[i]:
+                file_type: str = content[i]["type"]
+            else:
+                file_type: str = str("UKNOWN Type")
+
+            if "create_time" in content[i]:
+                creation_time:  str = content[i]["create_time"]
+            else:
+                creation_time: str = str("UKNOWN Create Time")
+
+            if "checksum" in content[i]:
+                checksum: str = str(content[i]["checksum"])
+            else:
+                checksum: str = str("UKNOWN Checksum")
+
+            
+            datasets_table.loc[i] = [filename, size, file_type, creation_time, checksum]
+        
+    except KeyError as kerr:
+        is_error = True
+        session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
+        session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
+        session.logging.debug(f"Printing HTTP request content:")
+        session.logging.debug(json.dumps(content, indent=4))
+        
+        if not supress_print:
+            print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
+
+    if is_error:
+        if supress_print:
+            print("Some errors occurred. See log file, please.")
+        return None
+    else:
+        return datasets_table
