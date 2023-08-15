@@ -4,6 +4,7 @@ from typing import Optional
 from py4lexis.session import LexisSession
 from py4lexis.ddi.datasets import Datasets
 from py4lexis.utils import printProgressBar
+from py4lexis.exceptions import Py4LexisException
 from datetime import date, datetime
 from pandas import DataFrame
 import time
@@ -89,7 +90,9 @@ class DatasetsCLI:
         """
         self.print_content: bool = print_content
         self.session: LexisSession = session
-        self.datasets: Datasets = Datasets(session, suppress_print=False)
+        self.datasets: Datasets = Datasets(session, 
+                                           from_cli=True, 
+                                           suppress_print=False)
 
 
     def create_dataset(self, 
@@ -146,12 +149,25 @@ class DatasetsCLI:
               f"    project:{project}\n"+
               f"    push_method:{push_method}\n"+
               f"    zone:{zone}")
-        content, req_status = self.datasets.create_dataset(access, project, push_method, zone, path, contributor, creator,
-                                                           owner, publicationYear, publisher, resourceType, title)
+        content, req_status = self.datasets.create_dataset(access, 
+                                                           project, 
+                                                           push_method, 
+                                                           zone, 
+                                                           path, 
+                                                           contributor, 
+                                                           creator,
+                                                           owner, 
+                                                           publicationYear, 
+                                                           publisher, 
+                                                           resourceType, 
+                                                           title)
         if req_status is not None:
             print(f"Dataset successfully created...")
         else:
-            print(f"Some error occurred while creating dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while creating dataset. See log file, please.")
+            else:
+                print(f"Some errors occurred while creating dataset. See log file, please.")
 
 
     def tus_uploader(self, 
@@ -259,9 +275,13 @@ class DatasetsCLI:
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 
             except KeyError as kerr:
+                self.session.logging.error(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
         else:
-            print(f"Some error occurred while creating dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving datasets' status. See log file, please.")
+            else:
+                print(f"Some errors occurred while retrieving datasets' status. See log file, please.")
 
 
     def get_all_datasets(self, 
@@ -309,9 +329,13 @@ class DatasetsCLI:
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 
             except KeyError as kerr:
+                self.session.logging.error(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
         else:
-            print(f"Some error occurred while creating dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving all datasets. See log file, please.")
+            else:
+                print(f"Some errors occurred while retrieving all datasets. See log file, please.")
 
 
     def delete_dataset_by_id(self, 
@@ -341,7 +365,10 @@ class DatasetsCLI:
         if req_status is not None:
             print(f"Dataset has been deleted...")
         else:
-            print(f"Some error occurred. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while deleting dataset. See log file, please.")
+            else:
+                print(f"Some errors occurred while deleting dataset. See log file, please.")
 
 
     def download_dataset(self, 
@@ -415,6 +442,11 @@ class DatasetsCLI:
 
         if not is_error:
             print("Dataset download -- SUCCESS!")
+        else:
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while downloading dataset. See log file, please.")
+            else:
+                print(f"Some errors occurred while downloading dataset. See log file, please.")
 
 
     def get_list_of_files_in_dataset(self, 
@@ -505,6 +537,10 @@ class DatasetsCLI:
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 
             except KeyError as kerr:
+                self.session.logging.error(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
         else:
-            print(f"Some error occurred while creating dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving list of files in dataset. See log file, please.")
+            else:
+                print(f"Some errors occurred while retrieving list of files in dataset. See log file, please.")

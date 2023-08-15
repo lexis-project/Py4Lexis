@@ -7,6 +7,7 @@ from datetime import date, datetime
 from py4lexis.ddi.tus_client import TusClient
 from tusclient import exceptions
 from pandas import DataFrame
+from py4lexis.exceptions import Py4LexisException
 from py4lexis.session import LexisSession
 from py4lexis.utils import convert_content_of_get_all_datasets_to_pandas, \
                            convert_content_of_get_datasets_status_to_pandas, \
@@ -18,6 +19,7 @@ import time
 class Datasets:
     def __init__(self,
                  session: LexisSession,
+                 from_cli: bool = False,
                  suppress_print: Optional[bool]=True) -> None:
         """
             A class holds methods to manage datasets within LEXIS platform.
@@ -26,6 +28,8 @@ class Datasets:
             ----------
             session : class
                 Class that holds LEXIS session
+            from_cli: bool, optional
+                If True, the method is called from py4lexis.cli.datasets.
             suppress_print: bool, optional
                 If True then all prints are suppressed. By default: suppress_print=True
 
@@ -93,6 +97,7 @@ class Datasets:
                 List all files within the dataset.
         """
         self.session = session
+        self.from_cli = from_cli
         self.suppress_print = suppress_print
 
 
@@ -167,36 +172,27 @@ class Datasets:
         self.session.logging.debug(f"POST -- {url} -- CREATE -- PROGRESS")
         status_solved: bool = False
         content: dict = {}
-        req_status: int = -1
         is_error: bool = False
-        try:
-            while not status_solved:
-                response: Response = req.post(
-                        self.session.API_PATH + "dataset",
-                        headers=self.session.API_HEADER,
-                        json=post_body)
-                    
-                content = response.json()
-                req_status = response.status_code
 
-                status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                             content, 
-                                                                             f"POST -- {url} -- CREATE", 
-                                                                             self.suppress_print)  
+        while not status_solved:
+            response: Response = req.post(
+                    self.session.API_PATH + "/dataset",
+                    headers=self.session.API_HEADER,
+                    json=post_body)
             
-        except json.decoder.JSONDecodeError:
-            is_error = False
-            self.session.logging.debug(f"POST -- {url} -- CREATE -- JSON response can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                print(f"POST -- {url} -- CREATE -- JSON response can't be decoded -- FAILED")
+            content, status_solved, is_error = self.session.handle_request_status(response,
+                                                                                  f"POST -- {url} -- CREATE", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)  
 
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
             return None, None
         else:
-            return content, req_status
+            return content, response.status_code
     
 
     def tus_uploader(self, 
@@ -255,7 +251,7 @@ class Datasets:
             -------
             None
         """
-        url: str = self.session.API_PATH + "/transfer/upload"
+        url: str = self.session.API_PATH + "/transfer/upload/"
         metadata: dict = {
             "path": path,
             "zone": zone,
@@ -298,8 +294,10 @@ class Datasets:
                 print(f"TUS UPLOAD -- Upload error: {te.response_content} -- FAILED")
 
         if not status:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
 
 
     def get_dataset_status(self, 
@@ -324,48 +322,40 @@ class Datasets:
         self.session.logging.debug(f"GET -- {url} -- PROGRESS")
         status_solved: bool = False
         content: list[dict] | DataFrame | None = []
-        req_status: int = -1
         is_error: bool = True
-        try:
-            while not status_solved:
-                response: Response = req.get(url,
-                                             headers={"Authorization": "Bearer " + self.session.TOKEN})
+
+        while not status_solved:
+            response: Response = req.get(url,
+                                            headers={"Authorization": "Bearer " + self.session.TOKEN})
+            
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"GET -- {url}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)        
+
+        if not is_error and content_as_pandas:
+            content = convert_content_of_get_datasets_status_to_pandas(self.session, 
+                                                                       content, 
+                                                                       supress_print=self.suppress_print)
+
+            if content is None:
+                is_error = True
+                self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- FAILED")
                 
-                content = response.json()
-                req_status = response.status_code
+                if not self.suppress_print:
+                    print(f"GET -- {url} -- DATAFRAME -- FAILED")
+            else:
+                self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- OK")            
 
-                status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                             content, 
-                                                                             f"GET -- {url}", 
-                                                                             self.suppress_print)        
- 
-            if not is_error and content_as_pandas:
-                content = convert_content_of_get_datasets_status_to_pandas(self.session, 
-                                                                           content, 
-                                                                           supress_print=self.suppress_print)
-
-                if content is None:
-                    is_error = True
-                    self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- FAILED")
-                    
-                    if not self.suppress_print:
-                        print(f"GET -- {url} -- DATAFRAME -- FAILED")
-                else:
-                    self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- OK")            
-
-        except json.decoder.JSONDecodeError:
-            is_error = True
-            self.session.logging.debug(f"GET -- {url} -- JSON response can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                print(f"GET -- {url} -- JSON response can't be decoded -- FAILED")
 
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
             return None, None
         else:
-            return content, req_status
+            return content, response.status_code
 
 
     def get_all_datasets(self, 
@@ -390,49 +380,39 @@ class Datasets:
         self.session.logging.debug(f"POST -- {url} -- PROGRESS")
         status_solved: bool = False
         content: list[dict] | DataFrame | None = None
-        req_status: int = -1
         is_error: bool = True
-        try:
-            while not status_solved:
-                response: Response = req.post(url,
-                                              headers=self.session.API_HEADER,
-                                              json={})
+        while not status_solved:
+            response: Response = req.post(url,
+                                          headers=self.session.API_HEADER,
+                                          json={})
+
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"POST -- {url}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
+        
+        if not is_error and content_as_pandas:
+            content = convert_content_of_get_all_datasets_to_pandas(self.session, 
+                                                                    content, 
+                                                                    supress_print=self.suppress_print)
+
+            if content is None:
+                is_error = True
+                self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
                 
-                content = response.json()
-                req_status = response.status_code
-
-                status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                             content, 
-                                                                             f"POST -- {url}", 
-                                                                             self.suppress_print)
-            
-            if not is_error and content_as_pandas:
-                content = convert_content_of_get_all_datasets_to_pandas(self.session, 
-                                                                        content, 
-                                                                        supress_print=self.suppress_print)
-
-                if content is None:
-                    is_error = True
-                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
-                    
-                    if not self.suppress_print:
-                        print(f"POST -- {url} -- DATAFRAME -- FAILED")
-                else:
+                if not self.suppress_print:
+                    print(f"POST -- {url} -- DATAFRAME -- FAILED")
+            else:
                     self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
     
-        except json.decoder.JSONDecodeError:
-            is_error = True
-            self.session.logging.debug(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                print(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
-
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
             return None, None
         else:
-            return content, req_status
+            return content, response.status_code
 
 
     def delete_dataset_by_id(self, 
@@ -468,35 +448,25 @@ class Datasets:
         self.session.logging.debug(f"DELETE -- {url} -- ID:{internal_id} -- PROGRESS")
         status_solved: bool = False
         content: dict = {}
-        req_status: int = -1
         is_error: bool = False
-        try:
-            while not status_solved:
-                response = req.delete(url,
-                                      headers=self.session.API_HEADER,
-                                      json=delete_body)
-                
-                content = response.json()
-                req_status = response.status_code
+        while not status_solved:
+            response = req.delete(url,
+                                  headers=self.session.API_HEADER,
+                                  json=delete_body)
 
-                status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                             content, 
-                                                                             f"DELETE -- {url} -- ID:{internal_id}", 
-                                                                             self.suppress_print)
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"DELETE -- {url} -- ID:{internal_id}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
 
-        except json.decoder.JSONDecodeError:
-            is_error = True
-            self.session.logging.debug(f"DELETE -- {url} -- ID:{internal_id} -- JSON response can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                print(f"DELETE -- {url} -- ID:{internal_id} -- JSON response can't be decoded -- FAILED")
-        
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
             return None, None
         else:
-            return content, req_status
+            return content, response.status_code
     
 
     def _ddi_submit_download(self, 
@@ -536,29 +506,19 @@ class Datasets:
         status_solved: bool = False
         is_error: bool = False
         content: dict = {}
-        req_status: int = -1
         try:
             while not status_solved:
                 response: Response = req.post(url,
                                               headers=self.session.API_HEADER,
                                               json=download_body)
-                content = response.json()
-                req_status = response.status_code
 
-                status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                             content, 
-                                                                             f"POST -- {url} -- DATA_ID:{dataset_id}", 
-                                                                             self.suppress_print)
+                content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                      f"POST -- {url} -- DATA_ID:{dataset_id}", 
+                                                                                      to_json=True,
+                                                                                      suppress_print=self.suppress_print)
             
             if not is_error:
                 request_id: str = content["request_id"]
-
-        except json.decoder.JSONDecodeError:
-            is_error = True
-            self.session.logging.debug(f"POST -- {url} -- DATA_ID:{dataset_id} -- JSON response of can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                print(f"POST -- {url} -- DATA_ID:{dataset_id} -- JSON response of can't be decoded -- FAILED")
 
         except KeyError as kerr:
             is_error = True
@@ -568,8 +528,10 @@ class Datasets:
                 print(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
         
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
             return None
         else:
             return request_id
@@ -595,29 +557,19 @@ class Datasets:
         status_solved: bool = False
         is_error: bool = False
         content: dict = {}
-        req_status: int = -1
-        try:
-            while not status_solved:
-                response: Response = req.get(url, headers=self.session.API_HEADER)
-                
-                content = response.json()
-                req_status = response.status_code
-
-                status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                             content, 
-                                                                             f"GET -- {url} -- REQ_ID:{request_id}", 
-                                                                             self.suppress_print)
-
-        except json.decoder.JSONDecodeError:
-            is_error = True
-            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- JSON response of can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                print(f"GET -- {url} -- REQ_ID:{request_id} -- JSON response of can't be decoded -- FAILED")
+        while not status_solved:
+            response: Response = req.get(url, headers=self.session.API_HEADER)
+            
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"GET -- {url} -- REQ_ID:{request_id}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
         
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
             return None
         else:
             return content      
@@ -648,24 +600,16 @@ class Datasets:
         status_solved: bool = False
         is_error: bool = False
         content: dict = {}
-        req_status: int = -1
         try:
             while not status_solved:
                 response: Response = req.get(url,
                                              headers=self.session.API_HEADER,
                                              stream=True)
                 
-                req_status = response.status_code
-
-                if 200 <= req_status <= 299:
-                    status_solved = True
-                    is_error = False
-                else:
-                    content = response.json()
-                    status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                                 content, 
-                                                                                 f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD", 
-                                                                                 self.suppress_print)
+                content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                      f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD", 
+                                                                                      to_json=False,
+                                                                                      suppress_print=self.suppress_print)
             
             # File ready, start downloading
             total_length = response.headers.get("content-length")
@@ -673,7 +617,7 @@ class Datasets:
 
             with open(destination_file, "wb") as f:
                 if total_length is None: # no content length header
-                    f.write(response.content)
+                    f.write(content)
                 else:
                     dl = 0
                     total_length = int(total_length)
@@ -687,13 +631,6 @@ class Datasets:
                         f.write(data)
                     if progress_func:
                         progress_func(total_length, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
-
-        except json.decoder.JSONDecodeError:
-            is_error = True
-            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- JSON response of can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                    print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- JSON response of can't be decoded -- FAILED")
 
         except KeyError as kerr:
             is_error = True
@@ -712,8 +649,10 @@ class Datasets:
                 print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
         
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
         
         '''
         with req.get(url=self.session.API_PATH + 'transfer/download/' + request_id,
@@ -827,8 +766,10 @@ class Datasets:
                 print(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED")
 
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
 
 
     def get_list_of_files_in_dataset(self, 
@@ -877,21 +818,16 @@ class Datasets:
         self.session.logging.debug(f"POST -- {url} -- PROGRESS")
         status_solved: bool = False
         content: list[dict] | DataFrame | None = None
-        req_status: int = -1
         is_error: bool = True
-        try:
-            while not status_solved:
-                response: Response = req.post(url,
-                                              headers=self.session.API_HEADER,
-                                              json=post_body)
-                
-                content = response.json()
-                req_status = response.status_code
+        while not status_solved:
+            response: Response = req.post(url,
+                                            headers=self.session.API_HEADER,
+                                            json=post_body)
 
-                status_solved, is_error = self.session.handle_request_status(req_status, 
-                                                                             content, 
-                                                                             f"POST -- {url}", 
-                                                                             self.suppress_print)
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"POST -- {url}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
 
             if not is_error and content_as_pandas:
                 content = convert_content_of_get_list_of_files_in_datasets_to_pandas(self.session, 
@@ -906,18 +842,13 @@ class Datasets:
                         print(f"POST -- {url} -- DATAFRAME -- FAILED")
                 else:
                     self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
-    
-        except json.decoder.JSONDecodeError:
-            is_error = True
-            self.session.logging.debug(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
-
-            if not self.suppress_print:
-                print(f"POST -- {url} -- JSON response can't be decoded -- FAILED")
 
         if is_error:
-            if self.suppress_print:
-                print("Some errors occurred. See log file, please.")
+            if not self.suppress_print and not self.from_cli:
+                print(f"Some errors occurred. See log file, please.")
+            if self.session.exception_on_error and not self.from_cli:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
             return None, None
         else:
-            return content, req_status
+            return content, response.status_code
         

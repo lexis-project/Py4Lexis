@@ -1,7 +1,8 @@
 import logging
 from typing import Optional
-import requests as req
-
+from requests import Response, get, ConnectionError
+from py4lexis.exceptions import Py4LexisException
+import json
 try:
     import tomllib
 except ModuleNotFoundError:
@@ -15,6 +16,7 @@ class LexisSession:
 
     def __init__(self, 
                  config_file: str, 
+                 exception_on_error: bool = False,
                  log_file: Optional[str]="./lexis_logs.log") -> None:
         """
             A class holds an LEXIS API SESSION.
@@ -23,6 +25,8 @@ class LexisSession:
             ----------
             config_file : str, 
                 path to a config file
+            exception_on_error : bool, optional
+                If True, the exception will be raised on error. By default is set to False.
             log_file : str, optional
                 path to a log file. DEFAULT: "./lexis_logs.log"
 
@@ -37,9 +41,15 @@ class LexisSession:
             refresh_token() -> bool
                 Refresh the user's keycloak tokens
 
-            handle_request_status(req_status: int, content: dict, log_msg: str, suppress_print: bool=True) -> tuple[bool, bool]
+            handle_request_status(self, 
+                                  response: Response, 
+                                  log_msg: str, 
+                                  to_json: bool = True,
+                                  suppress_print: Optional[bool]=True) -> tuple[dict | bytes, bool, bool]
                 Method which handles request status. If token is invalid then it tries to refresh it.
         """
+        # Exception on error
+        self.exception_on_error = exception_on_error
 
         # Initialise logging
         self.log_path: str = log_file
@@ -79,7 +89,7 @@ class LexisSession:
             self.logging.debug(f"Reading {config_file} -- OK")
 
             # check url if valid
-            response = req.get(self.API_PATH)
+            response = get(self.API_PATH)
             self.logging.debug(f"Initialise '{self.API_PATH}' -- OK")
 
             # Prepare requests header
@@ -96,12 +106,15 @@ class LexisSession:
             is_error = True
             self.logging.error(f"Reading '{config_file}' -- FAILED")
         
-        except req.ConnectionError:
+        except ConnectionError:
             is_error = True
             self.logging.error(f"Initialise '{self.API_PATH}' -- FAILED")
 
         if is_error:
-            print(f"Some errors occurred. See log file, please.")
+            if self.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            else:
+                print(f"Some errors occurred. See log file, please.")
 
 
     def _set_tokens(self, 
@@ -145,7 +158,10 @@ class LexisSession:
             self.logging.error(f"POST -- KEYCLOACK -- TOKEN -- Missing key '{kerr}' -- FAILED")
 
         if is_error:
-            print(f"Some errors occurred. See log file, please.")
+            if self.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            else:
+                print(f"Some errors occurred. See log file, please.")
 
 
     def get_token(self) -> str:
@@ -197,27 +213,30 @@ class LexisSession:
             self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- Missing key '{kerr}' -- FAILED")
 
         if is_error:
-            print(f"Some errors occurred while handling Keycloak tokens. See log file, please.")
+            if self.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while handling Keycloak tokens. See log file, please.")
+            else:
+                print(f"Some errors occurred while handling Keycloak tokens. See log file, please.")            
             return False
         else:
             return True
         
     def handle_request_status(self, 
-                              req_status: int, 
-                              content: dict, 
+                              response: Response, 
                               log_msg: str, 
-                              suppress_print: Optional[bool]=True) -> tuple[bool, bool]:
+                              to_json: bool = True,
+                              suppress_print: Optional[bool]=True) -> tuple[dict | bytes, bool, bool]:
         """
             Method which handles request status. If token is invalid then it tries to refresh it.
 
             Parameters
             ----------
-            req_status : int
-                HTTP Request Status
-            content : dict
-                Content of the HTTP request in JSON format
+            response : Response
+                HTTP Request response.
             log_msg : str
                 Message for the logger.
+            to_json : bool, optional
+                Convert content of response to JSON. By default is set to True.
             suppress_print : bool, optional
                 If True, the errors prints to console will be suppressed.
             
@@ -230,41 +249,61 @@ class LexisSession:
         """
 
         status_solved: bool = False
+        content: dict | bytes = {}
         is_error: bool = False
-        if 200 <= req_status <= 299:
-            status_solved = True
-            is_error = False
-            self.logging.debug(log_msg + " -- OK")
-        else:
-            if "errorString" in content.keys():
-                if content["errorString"] == "Inactive token":
-                    self.logging.debug(log_msg + " -- TOKEN -- FAILED")
-                    is_refreshed: bool = self.refresh_token()
-                    if is_refreshed:
-                        status_solved = False
-                        is_error = False
-                        self.logging.debug(log_msg + " -- REFRESH TOKEN -- OK")
+        try:
+            if 200 <= response.status_code <= 299:
+                status_solved = True
+                is_error = False
+                if to_json:
+                    content = response.json()
+                else:
+                    content = response.content
+
+                self.logging.debug(log_msg + " -- OK")
+            else:
+                if response.status_code == 404:
+                    is_error = True
+                    status_solved = True
+                    content = response.content
+                else:
+                    content = response.json()
+                    if "errorString" in content.keys():
+                        if content["errorString"] == "Inactive token":
+                            self.logging.debug(log_msg + " -- TOKEN -- FAILED")
+                            is_refreshed: bool = self.refresh_token()
+                            if is_refreshed:
+                                status_solved = False
+                                is_error = False
+                                self.logging.debug(log_msg + " -- REFRESH TOKEN -- OK")
+                            else:
+                                status_solved = True
+                                is_error = True
+                                self.logging.debug(log_msg + " -- REFRESH TOKEN -- FAILED")
+                                if not suppress_print:
+                                    print(log_msg + " -- REFRESH TOKEN -- FAILED")
+                        else:
+                            status_solved = True
+                            is_error = True
+                            self.logging.debug(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED")
+                            self.logging.debug(content)
+
+                            if not suppress_print:
+                                print(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED")
                     else:
                         status_solved = True
                         is_error = True
-                        self.logging.debug(log_msg + " -- REFRESH TOKEN -- FAILED")
+                        self.logging.debug(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED")
+                        self.logging.debug(content)
+
                         if not suppress_print:
-                            print(log_msg + " -- REFRESH TOKEN -- FAILED")
-                else:
-                    status_solved = True
-                    is_error = True
-                    self.logging.debug(log_msg + f" -- Bad request status: '{req_status}' -- FAILED")
-                    self.logging.debug(content)
-
-                    if not suppress_print:
-                        print(log_msg + f" -- Bad request status: '{req_status}' -- FAILED")
-            else:
-                status_solved = True
-                is_error = True
-                self.logging.debug(log_msg + f" -- Bad request status: '{req_status}' -- FAILED")
-                self.logging.debug(content)
-
-                if not suppress_print:
-                    print(log_msg + f" -- Bad request status: '{req_status}' -- FAILED") 
+                            print(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED") 
         
-        return status_solved, is_error
+        except json.decoder.JSONDecodeError:
+            is_error = True
+            self.logging.debug(log_msg + f" -- JSON response can't be decoded -- FAILED")
+
+            if not suppress_print:
+                print(log_msg + f" -- JSON response can't be decoded -- FAILED")
+        
+        return content, status_solved, is_error
