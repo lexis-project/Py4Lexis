@@ -534,6 +534,9 @@ class DatasetsCLI:
                 else:
                     print("Filesize cannot be negative.")
 
+                if filter_type != "":
+                    datasets_table = datasets_table[datasets_table["Type"] == filter_type]
+
                 print(tabulate(datasets_table.values.tolist(), cols, tablefmt="grid"))
 
             except KeyError as kerr:
