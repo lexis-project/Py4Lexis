@@ -87,13 +87,12 @@ class Datasets:
                 It is possible to specify by path parameter which exact file in the dataset should be downloaded.
                 It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
 
-            get_list_of_files_in_dataset(self, 
-                                         internal_id: str, 
+            get_list_of_files_in_dataset(internal_id: str, 
                                          access: str,
                                          project: str, 
                                          zone: str, 
                                          path: Optional[str]="",
-                                         content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame:
+                                         content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame
                 List all files within the dataset.
         """
         self.session = session

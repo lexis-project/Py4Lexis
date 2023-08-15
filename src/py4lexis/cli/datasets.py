@@ -87,6 +87,18 @@ class DatasetsCLI:
                 Downloads dataset by a specified informtions as access, zone, project, InternalID.
                 It is possible to specify by path parameter which exact file in the dataset should be downloaded.
                 It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
+
+            get_list_of_files_in_dataset(internal_id: str, 
+                                         access: str,
+                                         project: str, 
+                                         zone: str,
+                                         path: Optional[str]="",
+                                         filter_filename: Optional[str]="", 
+                                         filename_compare_type: Optional[str]="",
+                                         filter_size: Optional[int]=0,
+                                         size_compare_type: Optional[str]="eq", 
+                                         filter_type: Optional[str]="") -> None:
+                List all files within the dataset.
         """
         self.print_content: bool = print_content
         self.session: LexisSession = session
@@ -454,7 +466,7 @@ class DatasetsCLI:
                                      access: str,
                                      project: str, 
                                      zone: str,
-                                     path: str="",
+                                     path: Optional[str]="",
                                      filter_filename: Optional[str]="", 
                                      filename_compare_type: Optional[str]="",
                                      filter_size: Optional[int]=0,
@@ -473,6 +485,8 @@ class DatasetsCLI:
                 Project's short name in which the dataset is stored. Can be obtain by get_all_datasets() method.
             zone : str
                 iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
+            path : str, optional
+                Path within the dataset. By default: path="".
             filter_filename : str, optional
                 To filter table of files by name. By default: "" (i.e. filter is off).
             filename_compare_type : str, optional
