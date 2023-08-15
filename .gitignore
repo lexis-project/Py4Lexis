@@ -12,8 +12,7 @@ config.toml
 py4lexis/__pycache__
 test.py
 
-/.vscode/
-/.vscode/settings.json
+.vscode/
 *.rst
 
 # Byte-compiled / optimized / DLL files

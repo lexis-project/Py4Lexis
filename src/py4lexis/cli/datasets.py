@@ -454,6 +454,7 @@ class DatasetsCLI:
                                      access: str,
                                      project: str, 
                                      zone: str,
+                                     path: str="",
                                      filter_filename: Optional[str]="", 
                                      filename_compare_type: Optional[str]="",
                                      filter_size: Optional[int]=0,
@@ -502,6 +503,7 @@ class DatasetsCLI:
                                                                          access,
                                                                          project, 
                                                                          zone, 
+                                                                         path=path,
                                                                          content_as_pandas=True)
         if req_status is not None:
             try:

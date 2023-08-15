@@ -20,7 +20,7 @@ ds = DatasetsCLI(session)
 #dsets = ds.get_all_datasets(filter_access="project", filter_project="demoproject")
 
 # List all files in dataset
-#ds.get_list_of_files_in_dataset(internal_id="0e79c1f6-3757-11ee-885e-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone")
-ds.get_list_of_files_in_dataset(internal_id="2e889ce2-2c85-11ee-b219-005056b06219", access="project", project="exa4mind_wp4", zone="IT4ILexisZone")
+ds.get_list_of_files_in_dataset(internal_id="0e79c1f6-3757-11ee-885e-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone")
+#ds.get_list_of_files_in_dataset(internal_id="2e889ce2-2c85-11ee-b219-005056b06219", access="project", project="exa4mind_wp4", zone="IT4ILexisZone")
 
 
