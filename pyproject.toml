@@ -18,12 +18,13 @@ classifiers = [
 keywords = ["hpc", "py4lexis", "lexis"]
 dependencies = [
     "tabulate==0.9.0",
-    "requests==2.29.0",
+    "requests==2.31.0",
     "python-keycloak==2.15.3",
     "python-irodsclient==1.1.7",
     "tomli==2.0.1",
     "tuspy==1.0.0",
-    "pandas==2.0.3"
+    "pandas==2.0.3",
+    "future==0.18.3"
 ]
 requires-python = ">=3.10"
 

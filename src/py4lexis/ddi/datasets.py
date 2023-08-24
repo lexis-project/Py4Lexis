@@ -1,5 +1,4 @@
-# datasets.py
-
+from __future__ import annotations
 from typing import Optional
 import requests as req
 from requests import Response
@@ -9,17 +8,17 @@ from tusclient import exceptions
 from pandas import DataFrame
 from py4lexis.exceptions import Py4LexisException
 from py4lexis.session import LexisSession
-from py4lexis.utils import convert_content_of_get_all_datasets_to_pandas, \
-                           convert_content_of_get_datasets_status_to_pandas, \
-                           convert_content_of_get_list_of_files_in_datasets_to_pandas
+from py4lexis.utils import convert_get_all_datasets_to_pandas, \
+                           convert_get_datasets_status_to_pandas, \
+                           convert_dir_tree_to_pandas, printProgressBar
 from py4lexis.ddi.uploader import Uploader
 import json
 import time
 
-class Datasets:
+class Datasets(object):
     def __init__(self,
                  session: LexisSession,
-                 from_cli: bool = False,
+                 print_content: Optional[bool]=False,
                  suppress_print: Optional[bool]=True) -> None:
         """
             A class holds methods to manage datasets within LEXIS platform.
@@ -28,8 +27,8 @@ class Datasets:
             ----------
             session : class
                 Class that holds LEXIS session
-            from_cli: bool, optional
-                If True, the method is called from py4lexis.cli.datasets.
+            print_content : bool, optional
+                If True then contents of all requests will be printed.
             suppress_print: bool, optional
                 If True then all prints are suppressed. By default: suppress_print=True
 
@@ -49,22 +48,33 @@ class Datasets:
                            title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]
                 Create an empty dataset with specified attributes.
 
-            tus_uploader(access: str, 
-                         project: str, 
-                         filename: str, 
-                         zone: Optional[str]="IT4ILexisZone", 
-                         file_path: Optional[str]="./",
-                         path: Optional[str]="", 
-                         contributor: Optional[list[str]]=["NONAME contributor"], 
-                         creator: Optional[list[str]]=["NONAME creator"],
-                         owner: Optional[list[str]]=["NONAME owner"], 
-                         publicationYear: Optional[str]=str(date.today().year), 
-                         publisher: Optional[list[str]]=["NONAME publisher"],
-                         resourceType: Optional[str]="NONAME resource type", 
-                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                         expand: Optional[str]="no", 
-                         encryption: Optional[str]="no") -> None
-                Create a dataset and upload a data by TUS client.
+            tus_uploader_new(access: str, 
+                             project: str, 
+                             filename: str, 
+                             zone: Optional[str]="IT4ILexisZone", 
+                             file_path: Optional[str]="./",
+                             path: Optional[str]="", 
+                             contributor: Optional[list[str]]=["NONAME contributor"], 
+                             creator: Optional[list[str]]=["NONAME creator"],
+                             owner: Optional[list[str]]=["NONAME owner"], 
+                             publicationYear: Optional[str]=str(date.today().year), 
+                             publisher: Optional[list[str]]=["NONAME publisher"],
+                             resourceType: Optional[str]="NONAME resource type", 
+                             title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                             expand: Optional[str]="no", 
+                             encryption: Optional[str]="no") -> None
+                Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
+
+            tus_uploader_rewrite(dataset_id: str,
+                                 dataset_title: str,
+                                 access: str, 
+                                 project: str, 
+                                 filename: str, 
+                                 zone: str="IT4ILexisZone", 
+                                 file_path: Optional[str]="./",
+                                 path: Optional[str]="",                               
+                                 encryption: Optional[str]="no") -> None:
+                Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
 
             get_dataset_status(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
                 Prints a table of the datasets' staging states.
@@ -72,14 +82,14 @@ class Datasets:
             get_all_datasets(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
                 Prints a table of the all existing datasets.
 
-            delete_dataset_by_id(internal_id: str, 
+            delete_dataset_by_id(dataset_id: str, 
                                  access: str, 
                                  project: str) -> tuple[list[dict], int] | tuple[None, None]
                 Deletes a dataset by a specified internalID.
 
             download_dataset(acccess: str, 
                              project: str, 
-                             internal_id: str, 
+                             dataset_id: str, 
                              zone: str,
                              path: Optional[str]="",
                              destination_file: Optional[str]="./download.tar.gz") -> None
@@ -87,7 +97,7 @@ class Datasets:
                 It is possible to specify by path parameter which exact file in the dataset should be downloaded.
                 It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
 
-            get_list_of_files_in_dataset(internal_id: str, 
+            get_list_of_files_in_dataset(dataset_id: str, 
                                          access: str,
                                          project: str, 
                                          zone: str, 
@@ -96,7 +106,7 @@ class Datasets:
                 List all files within the dataset.
         """
         self.session = session
-        self.from_cli = from_cli
+        self.print_content = print_content
         self.suppress_print = suppress_print
 
 
@@ -173,6 +183,14 @@ class Datasets:
         content: dict = {}
         is_error: bool = False
 
+        if not self.suppress_print:
+            print(f"Creating dataset:"+
+                  f"    title: {title}\n"+ 
+                  f"    access:{access}\n"+
+                  f"    project:{project}\n"+
+                  f"    push_method:{push_method}\n"+
+                  f"    zone:{zone}")
+
         while not status_solved:
             response: Response = req.post(
                     self.session.API_PATH + "/dataset",
@@ -185,33 +203,37 @@ class Datasets:
                                                                                   suppress_print=self.suppress_print)  
 
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while creating the dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while creating the dataset. See log file, please.")
             return None, None
         else:
+            if not self.suppress_print:
+                print(f"The dataset was successfully created:")
+            if self.print_content:
+                print(f"content: {content}")
             return content, response.status_code
     
 
-    def tus_uploader(self, 
-                     access: str, 
-                     project: str, 
-                     filename: str, 
-                     zone: Optional[str]="IT4ILexisZone", 
-                     file_path: Optional[str]="./",
-                     path: Optional[str]="", 
-                     contributor: Optional[list[str]]=["NONAME contributor"], 
-                     creator: Optional[list[str]]=["NONAME creator"],
-                     owner: Optional[list[str]]=["NONAME owner"], 
-                     publicationYear: Optional[str]=str(date.today().year), 
-                     publisher: Optional[list[str]]=["NONAME publisher"],
-                     resourceType: Optional[str]="NONAME resource type", 
-                     title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                     expand: Optional[str]="no", 
-                     encryption: Optional[str]="no") -> None:
+    def tus_uploader_new(self, 
+                         access: str, 
+                         project: str, 
+                         filename: str, 
+                         zone: Optional[str]="IT4ILexisZone", 
+                         file_path: Optional[str]="./",
+                         path: Optional[str]="", 
+                         contributor: Optional[list[str]]=["NONAME contributor"], 
+                         creator: Optional[list[str]]=["NONAME creator"],
+                         owner: Optional[list[str]]=["NONAME owner"], 
+                         publicationYear: Optional[str]=str(date.today().year), 
+                         publisher: Optional[list[str]]=["NONAME publisher"],
+                         resourceType: Optional[str]="NONAME resource type", 
+                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                         expand: Optional[str]="no", 
+                         encryption: Optional[str]="no") -> None:
         """
-            Upload a data by TUS client to the specified dataset.
+            Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
 
             Parameters
             ----------
@@ -250,7 +272,7 @@ class Datasets:
             -------
             None
         """
-        url: str = self.session.API_PATH + "/transfer/upload/"
+        file_path = file_path + filename
         metadata: dict = {
             "path": path,
             "zone": zone,
@@ -271,38 +293,111 @@ class Datasets:
             })
         }
 
+        self._tus_upload(file_path, metadata)
+
+
+    def tus_uploader_rewrite(self, 
+                             dataset_id: str,
+                             dataset_title: str,
+                             access: str, 
+                             project: str, 
+                             filename: str, 
+                             zone: str="IT4ILexisZone", 
+                             file_path: Optional[str]="./",
+                             path: Optional[str]="",                               
+                             encryption: Optional[str]="no") -> None:
+        """
+            Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
+
+            Parameters
+            ----------
+            dataset_id : str
+                Internal ID of existing dataset.
+            dataset_title : str
+                Title of existing dataset.
+            access : str
+                One of the access types [public, project, user].
+            project: str
+                Project's short name in which dataset will be stored.
+            filename: str
+                Name of a file to be uploaded.
+            zone: str | None, optional
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+            file_path: str | None, optional,
+                Path to a file in user's machine. By default "./".
+            path: str, optional
+                By default, root path is set, i.e. "./".
+            encryption: str, optional
+                By default: "no".
+
+            Returns
+            -------
+            None
+        """
+        file_path = file_path + filename
+        metadata: dict = {
+            "filename": filename,
+            "project": project,
+            "access": access,
+            "zone": zone,
+            "metadata": json.dumps({
+                "title": dataset_title
+            }),
+            "encryption": encryption,
+            "expand": "yes",
+            "path": path,
+            "dataset_id": dataset_id
+        }
+
+        self._tus_upload(file_path, metadata)
+
+
+    def _tus_upload(self, file_path: str, metadata: dict):
+        if not self.suppress_print:
+            print(f"Initialising TUS upload with the following metadata:\n"+
+                  f"    {metadata}")
+            
+        url: str = self.session.API_PATH + "/transfer/upload/"
         status: bool = True
         try:
-            # TODO: Refresh token if not valid and repeat
+            # TODO: Make better check if token is alive
+            self.session.refresh_token()
+
+            if not self.suppress_print:
+                print("Initialising TUS client...")
+
             tus_client: TusClient = TusClient(url,
                                               headers=self.session.API_HEADER)
             
             self.session.logging.debug(f"TUS UPLOAD -- TUS client initialised -- OK")
+            if not self.suppress_print:
+                print(f"Initialising TUS client -- OK\n"+
+                      f"Initialising TUS uploader...")
 
-            uploader: Uploader = tus_client.uploader(file_path=file_path + filename, 
+            uploader: Uploader = tus_client.uploader(file_path=file_path, 
                                                      chunk_size=1048576,
                                                      metadata=metadata)
             
             self.session.logging.debug(f"TUS UPLOAD -- TUS upload initialised -- OK")
+            if not self.suppress_print:
+                print("Initialising TUS uploader -- OK")
             uploader.upload()
 
         except exceptions.TusCommunicationError as te:
             status = False
             self.session.logging.error(f"TUS UPLOAD -- Upload error: {te.response_content} -- FAILED")
-            if not self.suppress_print:
-                print(f"TUS UPLOAD -- Upload error: {te.response_content} -- FAILED")
 
         if not status:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred during the TUS upload. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred during the TUS upload. See log file, please.")
 
 
     def get_dataset_status(self, 
                            content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
         """
-            Get datasets' status information.
+            Get datasets' upload status information.
 
             Parameters
             ----------
@@ -316,6 +411,9 @@ class Datasets:
             int | None
                 Status of the HTTP request.  None is returned if some errors have occured.
         """
+        if not self.suppress_print:
+            print(f"Retrieving upload status of the datasets...")
+
         url: str = self.session.API_PATH + "/transfer/status"
 
         self.session.logging.debug(f"GET -- {url} -- PROGRESS")
@@ -333,27 +431,27 @@ class Datasets:
                                                                                   suppress_print=self.suppress_print)        
 
         if not is_error and content_as_pandas:
-            content = convert_content_of_get_datasets_status_to_pandas(self.session, 
-                                                                       content, 
-                                                                       supress_print=self.suppress_print)
+            content = convert_get_datasets_status_to_pandas(self.session, 
+                                                            content, 
+                                                            supress_print=self.suppress_print)
 
             if content is None:
                 is_error = True
-                self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- FAILED")
-                
-                if not self.suppress_print:
-                    print(f"GET -- {url} -- DATAFRAME -- FAILED")
+                self.session.logging.debug(f"GET -- {url} -- CONVERT TO DATAFRAME -- FAILED")
             else:
-                self.session.logging.debug(f"GET -- {url} -- DATAFRAME -- OK")            
-
-
+                self.session.logging.debug(f"GET -- {url} -- CONVERT TO DATAFRAME -- OK")    
+                
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving upload status of datasets. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving upload status of datasets. See log file, please.")
             return None, None
         else:
+            if not self.suppress_print:
+                    print("Upload status of datasets successfully retrived (and converted) -- OK") 
+            if self.print_content:
+                print(f"content: {content}")
             return content, response.status_code
 
 
@@ -374,6 +472,10 @@ class Datasets:
             int | None
                 Status of the HTTP request. None if some errors have occured.
         """
+
+        if not self.suppress_print:
+            print(f"Retrieving data of the datasets...")
+
         url: str = self.session.API_PATH + "/dataset/search/metadata"
 
         self.session.logging.debug(f"POST -- {url} -- PROGRESS")
@@ -391,31 +493,33 @@ class Datasets:
                                                                                   suppress_print=self.suppress_print)
         
         if not is_error and content_as_pandas:
-            content = convert_content_of_get_all_datasets_to_pandas(self.session, 
-                                                                    content, 
-                                                                    supress_print=self.suppress_print)
+            content = convert_get_all_datasets_to_pandas(self.session, 
+                                                         content, 
+                                                         supress_print=self.suppress_print)
 
             if content is None:
                 is_error = True
-                self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
+                self.session.logging.debug(f"POST -- {url} -- CONVERT TO DATAFRAME -- FAILED")
                 
-                if not self.suppress_print:
-                    print(f"POST -- {url} -- DATAFRAME -- FAILED")
             else:
-                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
-    
+                self.session.logging.debug(f"POST -- {url} -- CONVERT TO DATAFRAME -- OK")
+                    
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving data of the datasets. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving data of the datasets. See log file, please.")
             return None, None
         else:
+            if not self.suppress_print:
+                    print(f"Data of the datasets successfully retrieved (and converted)....")
+            if self.print_content:
+                print(f"content: {content}")
             return content, response.status_code
 
 
     def delete_dataset_by_id(self, 
-                             internal_id: str, 
+                             dataset_id: str, 
                              access: str, 
                              project: str) -> tuple[list[dict], int] | tuple[None, None]:
         """
@@ -423,7 +527,7 @@ class Datasets:
 
             Parameters
             ----------
-            internal_id : str
+            dataset_id : str
                 InternalID of the dataset. Can be obtain by get_all_datasets() method.
             access : str
                 One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
@@ -437,14 +541,17 @@ class Datasets:
             int | None
                 Status of the HTTP request. None if some errors have occured.
         """
+        if not self.suppress_print:
+            print(f"Deleting dataset with ID: {dataset_id}")
+
         url: str = self.session.API_PATH + "/dataset"
         delete_body: dict = {
             "access": access,
             "project": project,
-            "internalID": internal_id
+            "internalID": dataset_id
         }
 
-        self.session.logging.debug(f"DELETE -- {url} -- ID:{internal_id} -- PROGRESS")
+        self.session.logging.debug(f"DELETE -- {url} -- ID:{dataset_id} -- PROGRESS")
         status_solved: bool = False
         content: dict = {}
         is_error: bool = False
@@ -454,17 +561,21 @@ class Datasets:
                                   json=delete_body)
 
             content, status_solved, is_error = self.session.handle_request_status(response, 
-                                                                                  f"DELETE -- {url} -- ID:{internal_id}", 
+                                                                                  f"DELETE -- {url} -- ID:{dataset_id}", 
                                                                                   to_json=True,
                                                                                   suppress_print=self.suppress_print)
 
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while deleting the dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while deleting the dataset. See log file, please.")
             return None, None
         else:
+            if not self.suppress_print:
+                print(f"Dataset has been deleted...")
+            if self.print_content:
+                print(f"content: {content}")
             return content, response.status_code
     
 
@@ -517,20 +628,17 @@ class Datasets:
                                                                                       suppress_print=self.suppress_print)
             
             if not is_error:
-                request_id: str = content["request_id"]
+                request_id: str = content["requestId"]
 
         except KeyError as kerr:
             is_error = True
             self.session.logging.debug(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
-            
-            if not self.suppress_print:
-                print(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
         
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while submitting download. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while submitting download. See log file, please.")
             return None
         else:
             return request_id
@@ -565,10 +673,10 @@ class Datasets:
                                                                                   suppress_print=self.suppress_print)
         
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving download status. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving download status. See log file, please.")
             return None
         else:
             return content      
@@ -634,67 +742,23 @@ class Datasets:
         except KeyError as kerr:
             is_error = True
             self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
-            
-            if not self.suppress_print:
-                print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
 
         except IOError as ioe:
             is_error = True
             self.session.logging.error(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- FAILED")
             self.session.logging.error(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
-            
-            if not self.suppress_print:
-                print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- FAILED")
-                print(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
         
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
-        
-        '''
-        with req.get(url=self.session.API_PATH + 'transfer/download/' + request_id,
-                        headers=self.session.API_HEADER,
-                        stream=True) as request:
-            
-            if request.status_code != 200:
-                self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/download -- ID:{request_id} -- DOWNLOAD -- FAILED")
-                raise Py4LexisException(request.content)
-            
-            # File ready, start downloading
-            total_length = request.headers.get('content-length')
-            self.session.logging.debug(f"STARTING DOWNLOADING -- OK")
-            try:
-                with open(destination_file, "wb") as f:
-                    if total_length is None: # no content length header
-                        f.write(request.content)
-                    else:
-                        dl = 0
-                        total_length = int(total_length)
-                        current: int = int(0)
-                        chunk_size: int = int(4096)
-                        for data in request.iter_content(chunk_size=chunk_size):
-                            if progress_func:
-                                progress_func(current, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
-                                current += chunk_size
-                            dl += len(data)
-                            f.write(data)
-                        if progress_func:
-                            progress_func(total_length, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
-                        
-            except IOError as ioe:
-                self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/download -- ID:{request_id} -- DOWNLOAD -- FAILED")
-                raise Py4LexisException(str(ioe))
-        
-        self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/download -- ID:{request_id} -- DOWNLOAD -- OK")
-        '''
+            if not self.suppress_print:
+                print(f"Some errors occurred while downloading dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while downloading dataset. See log file, please.")
 
 
     def download_dataset(self, 
+                         dataset_id: str,
                          acccess: str, 
-                         project: str, 
-                         internal_id: str, 
+                         project: str,                           
                          zone: str,
                          path: Optional[str]="",
                          destination_file: Optional[str]="./download.tar.gz") -> None:
@@ -709,7 +773,7 @@ class Datasets:
                 One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
             project: str
                 Project's short name in which dataset is stored. Can be obtain by get_all_datasets() method.
-            internal_id: str
+            dataset_id: str
                 InternalID of the dataset. Can be obtain by get_all_datasets() method.
             zone: str
                 iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
@@ -722,35 +786,49 @@ class Datasets:
             -------
             None
         """
+        
+        if not self.suppress_print:
+            print("Submitting download request on server...")
 
-        down_request = self._ddi_submit_download(dataset_id=internal_id, 
+        down_request = self._ddi_submit_download(dataset_id=dataset_id, 
                                                  zone=zone, 
                                                  access=acccess,
                                                  project=project, 
                                                  path=path)
+        if not self.suppress_print:
+            print("Download submitted!")
 
         # Wait until it is ready
         retries_max: int = 200
         retries: int = 0
         delay: int = 5 # secs
         is_error: bool = False
+
+        if not self.suppress_print:
+            print("Checking the status of download request...")
+
         while retries < retries_max:
             status = self._ddi_get_download_status(request_id=down_request)
 
             if status["task_state"] == "SUCCESS":
+                if not self.suppress_print:
+                    print("Starting downloading the dataset...")
                 # Download file
-                self._ddi_download_dataset(request_id=down_request, destination_file=destination_file)
+                if not self.suppress_print:
+                    self._ddi_download_dataset(request_id=down_request, destination_file=destination_file, progress_func=printProgressBar)
+                else:
+                    self._ddi_download_dataset(request_id=down_request, destination_file=destination_file)
                 break
 
             if status["task_state"] == "ERROR" or status["task_state"] == "FAILURE":
                 is_error = True
                 self.session.logging.error(f"DOWNLOAD -- REQ_ID:{down_request} -- request failed: {status['task_result']} -- FAILED")
-
-                if not self.suppress_print:
-                    print(f"DOWNLOAD -- REQ_ID:{down_request} -- request failed: {status['task_result']} -- FAILED")
                 break
 
             self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- waiting for download to become ready -- remaining retries {retries}/{retries_max} -- OK")    
+            
+            if not self.suppress_print:
+                print(f"Download request not ready yet, {retries_max}/{retries} retries remaining")
 
             # Refresh
             self.session.refresh_token()
@@ -759,20 +837,20 @@ class Datasets:
         
         if retries == retries_max and not is_error:
             is_error = True
-            self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED")    
-
-            if not self.suppress_print:
-                print(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED")
+            self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED") 
 
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while downloading dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while downloading dataset. See log file, please.")
+        else:
+            if not self.suppress_print:
+                print("Dataset successfully downloaded -- OK!")
 
 
     def get_list_of_files_in_dataset(self, 
-                                     internal_id: str, 
+                                     dataset_id: str, 
                                      access: str,
                                      project: str, 
                                      zone: str, 
@@ -783,7 +861,7 @@ class Datasets:
 
             Parameters
             ----------
-            internal_id : str
+            dataset_id : str
                 InternalID of the dataset. Can be obtain by get_all_datasets() method.
             access : str
                 Access of the dataset. One of ["user", "project", "public"]. Can be obtain by get_all_datasets() method.
@@ -793,8 +871,10 @@ class Datasets:
                 iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
             path : str, optional
                 Path within the dataset. By default: path="".
+            print_dir_tree: bool, optional
+                If True, directory tree will be printed. By default: print_dir_tree=False.
             content_as_pandas: bool, optional
-                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False.
 
             Returns
             -------
@@ -803,10 +883,14 @@ class Datasets:
             int | None
                 Status of the HTTP request. None if some errors have occured.
         """
+
+        if not self.suppress_print:
+            print(f"Retrieving data of files in the dataset...")
+
         url: str = self.session.API_PATH + "/dataset/listing"
 
         post_body: dict = {
-            "internalID": internal_id,
+            "internalID": dataset_id,
             "access": access,
             "project": project,
             "path": path,
@@ -829,25 +913,26 @@ class Datasets:
                                                                                   suppress_print=self.suppress_print)
 
             if not is_error and content_as_pandas:
-                content = convert_content_of_get_list_of_files_in_datasets_to_pandas(self.session, 
-                                                                                     content, 
-                                                                                     supress_print=self.suppress_print)
+                content = convert_dir_tree_to_pandas(self.session, 
+                                                     content, 
+                                                     supress_print=self.suppress_print)
 
                 if content is None:
                     is_error = True
                     self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
-                    
-                    if not self.suppress_print:
-                        print(f"POST -- {url} -- DATAFRAME -- FAILED")
                 else:
                     self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
 
         if is_error:
-            if not self.suppress_print and not self.from_cli:
-                print(f"Some errors occurred. See log file, please.")
-            if self.session.exception_on_error and not self.from_cli:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving list of files. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving list of files. See log file, please.")
             return None, None
         else:
+            if not self.suppress_print:
+                print(f"List of files successfully retrieved (and converted)...")
+            if self.print_content:
+                print(f"{content}")
             return content, response.status_code
         

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 from typing import Optional
 from requests import Response, get, ConnectionError
@@ -12,7 +13,7 @@ from keycloak import KeycloakOpenID
 from keycloak.exceptions import KeycloakPostError
 
 
-class LexisSession:
+class LexisSession(object):
 
     def __init__(self, 
                  config_file: str, 

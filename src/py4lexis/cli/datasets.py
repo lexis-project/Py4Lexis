@@ -1,19 +1,17 @@
-# datasets.py
-
-from typing import Optional
+from __future__ import annotations
+from typing import Generator, Optional
 from py4lexis.session import LexisSession
 from py4lexis.ddi.datasets import Datasets
-from py4lexis.utils import printProgressBar
-from py4lexis.exceptions import Py4LexisException
+from py4lexis.directory_tree import DirectoryTree
+from py4lexis.custom_types.directory_tree import TreeDirectoryObject
 from datetime import date, datetime
 from pandas import DataFrame
-import time
 # Making ASCII table
 # Source: https://stackoverflow.com/questions/5909873/how-can-i-pretty-print-ascii-tables-with-python
 from tabulate import tabulate
 
 
-class DatasetsCLI:
+class DatasetsCLI(object):
     def __init__(self, 
                  session: LexisSession, 
                  print_content: Optional[bool]=False):
@@ -43,22 +41,33 @@ class DatasetsCLI:
                            title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> None
                 Create an empty dataset with specified attributes.
 
-            tus_uploader(access: str, 
-                         project: str, 
-                         filename: str, 
-                         zone: Optional[str]="IT4ILexisZone", 
-                         file_path: Optional[str]="./",
-                         path: Optional[str]="", 
-                         contributor: Optional[list[str]]=["NONAME contributor"], 
-                         creator: Optional[list[str]]=["NONAME creator"],
-                         owner: Optional[list[str]]=["NONAME owner"], 
-                         publicationYear: Optional[str]=str(date.today().year), 
-                         publisher: Optional[list[str]]=["NONAME publisher"],
-                         resourceType: Optional[str]="NONAME resource type", 
-                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                         expand: Optional[str]="no", 
-                         encryption: Optional[str]="no") -> None
-                Create a dataset and upload a data by TUS client.
+            tus_uploader_new(access: str, 
+                             project: str, 
+                             filename: str, 
+                             zone: Optional[str]="IT4ILexisZone", 
+                             file_path: Optional[str]="./",
+                             path: Optional[str]="", 
+                             contributor: Optional[list[str]]=["NONAME contributor"], 
+                             creator: Optional[list[str]]=["NONAME creator"],
+                             owner: Optional[list[str]]=["NONAME owner"], 
+                             publicationYear: Optional[str]=str(date.today().year), 
+                             publisher: Optional[list[str]]=["NONAME publisher"],
+                             resourceType: Optional[str]="NONAME resource type", 
+                             title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                             expand: Optional[str]="no", 
+                             encryption: Optional[str]="no") -> None
+                Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
+
+            tus_uploader_rewrite(dataset_id: str,
+                                 dataset_title: str,
+                                 access: str, 
+                                 project: str, 
+                                 filename: str, 
+                                 zone: str="IT4ILexisZone", 
+                                 file_path: Optional[str]="./",
+                                 path: Optional[str]="",                               
+                                 encryption: Optional[str]="no") -> None:
+                Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
 
             get_dataset_status(filter_filename: Optional[str]="", 
                                filter_project: Optional[str]="", 
@@ -73,14 +82,14 @@ class DatasetsCLI:
                 Prints a table of the all existing datasets. Is possible to use filters to get filtered table by
                 title, access, zone, project.
 
-            delete_dataset_by_id(internal_id: str, 
+            delete_dataset_by_id(dataset_id: str, 
                                  access: str, 
                                  project: str) -> None
                 Deletes a dataset by a specified internalID.
 
             download_dataset(acccess: str,
                              project: str,
-                             internal_id: str,
+                             dataset_id: str,
                              zone:str,
                              path: Optional[str] = "",
                              destination_file: Optional[str] = "./download.tar.gz") -> None
@@ -88,11 +97,12 @@ class DatasetsCLI:
                 It is possible to specify by path parameter which exact file in the dataset should be downloaded.
                 It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
 
-            get_list_of_files_in_dataset(internal_id: str, 
+            get_list_of_files_in_dataset(dataset_id: str, 
                                          access: str,
                                          project: str, 
                                          zone: str,
                                          path: Optional[str]="",
+                                         print_dir_tree: Optional[bool]=False,
                                          filter_filename: Optional[str]="", 
                                          filename_compare_type: Optional[str]="",
                                          filter_size: Optional[int]=0,
@@ -103,7 +113,7 @@ class DatasetsCLI:
         self.print_content: bool = print_content
         self.session: LexisSession = session
         self.datasets: Datasets = Datasets(session, 
-                                           from_cli=True, 
+                                           print_content=print_content, 
                                            suppress_print=False)
 
 
@@ -155,51 +165,38 @@ class DatasetsCLI:
             None
         """
 
-        print(f"Creating dataset:"+
-              f"    title: {title}\n"+ 
-              f"    access:{access}\n"+
-              f"    project:{project}\n"+
-              f"    push_method:{push_method}\n"+
-              f"    zone:{zone}")
-        content, req_status = self.datasets.create_dataset(access, 
-                                                           project, 
-                                                           push_method, 
-                                                           zone, 
-                                                           path, 
-                                                           contributor, 
-                                                           creator,
-                                                           owner, 
-                                                           publicationYear, 
-                                                           publisher, 
-                                                           resourceType, 
-                                                           title)
-        if req_status is not None:
-            print(f"Dataset successfully created...")
-        else:
-            if self.session.exception_on_error:
-                raise Py4LexisException(f"Some errors occurred while creating dataset. See log file, please.")
-            else:
-                print(f"Some errors occurred while creating dataset. See log file, please.")
+        _, _ = self.datasets.create_dataset(access, 
+                                            project, 
+                                            push_method, 
+                                            zone, 
+                                            path, 
+                                            contributor, 
+                                            creator,
+                                            owner, 
+                                            publicationYear, 
+                                            publisher, 
+                                            resourceType, 
+                                            title)
 
 
-    def tus_uploader(self, 
-                     access: str, 
-                     project: str, 
-                     filename: str, 
-                     zone: Optional[str]="IT4ILexisZone", 
-                     file_path: Optional[str]="./",
-                     path: Optional[str]="", 
-                     contributor: Optional[list[str]]=["NONAME contributor"], 
-                     creator: Optional[list[str]]=["NONAME creator"],
-                     owner: Optional[list[str]]=["NONAME owner"], 
-                     publicationYear: Optional[str]=str(date.today().year), 
-                     publisher: Optional[list[str]]=["NONAME publisher"],
-                     resourceType: Optional[str]="NONAME resource type", 
-                     title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
-                     expand: Optional[str]="no", 
-                     encryption: Optional[str]="no") -> None:
+    def tus_uploader_new(self, 
+                         access: str, 
+                         project: str, 
+                         filename: str, 
+                         zone: Optional[str]="IT4ILexisZone", 
+                         file_path: Optional[str]="./",
+                         path: Optional[str]="/", 
+                         contributor: Optional[list[str]]=["NONAME contributor"], 
+                         creator: Optional[list[str]]=["NONAME creator"],
+                         owner: Optional[list[str]]=["NONAME owner"], 
+                         publicationYear: Optional[str]=str(date.today().year), 
+                         publisher: Optional[list[str]]=["NONAME publisher"],
+                         resourceType: Optional[str]="NONAME resource type", 
+                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                         expand: Optional[str]="no", 
+                         encryption: Optional[str]="no") -> None:
         """
-            Upload a data by TUS client to a new specified dataset.
+            Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
 
             Parameters
             ----------
@@ -239,13 +236,51 @@ class DatasetsCLI:
             None
         """
 
-        print(f"Initialising TUS upload:\n"+
-              f"    filename: {filename}\n"+
-              f"    access: {access}\n"+
-              f"    project: {project}\n"+
-              f"    zone: {zone}")
-        self.datasets.tus_uploader(access, project, filename, zone, file_path, path, contributor, creator, owner, publicationYear,
-                                   publisher, resourceType, title, expand, encryption)
+        self.datasets.tus_uploader_new(access, project, filename, zone, file_path, path, contributor, creator, owner, publicationYear,
+                                       publisher, resourceType, title, expand, encryption)
+        
+
+    def tus_uploader_rewrite(self, 
+                             dataset_id: str,
+                             dataset_title: str,
+                             access: str, 
+                             project: str, 
+                             filename: str, 
+                             zone: Optional[str]="IT4ILexisZone", 
+                             file_path: Optional[str]="./",
+                             path: Optional[str]="",  
+                             encryption: Optional[str]="no") -> None:
+        """
+            Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
+
+            Parameters
+            ----------
+            dataset_id : str
+                Internal ID of existing dataset.
+            dataset_title : str
+                Title of existing dataset.
+            access : str
+                One of the access types [public, project, user].
+            project: str
+                Project's short name in which dataset will be stored.
+            filename: str
+                Name of a file to be uploaded.
+            zone: str | None, optional
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+            file_path: str | None, optional,
+                Path to a file in user's machine. By default "./".
+            path: str, optional
+                By default, root path is set, i.e. "./".
+            encryption: str, optional
+                By default: "no".
+
+            Returns
+            -------
+            None
+        """
+
+        self.datasets.tus_uploader_rewrite(dataset_id, dataset_title, access, project, filename,
+                                           zone, file_path, path, encryption)
 
 
     def get_dataset_status(self, 
@@ -266,8 +301,8 @@ class DatasetsCLI:
                 To filter table of datasets by task_state. One of ["PENDING", "SUCCESS"]. By default: "" (i.e. filter is off).
         """
 
-        print(f"Retrieving data of status of the datasets...")
         content, req_status = self.datasets.get_dataset_status(content_as_pandas=True)
+
         if req_status is not None:
             try:
                 print(f"Formatting pandas DataFrame into ASCII table...")
@@ -289,11 +324,6 @@ class DatasetsCLI:
             except KeyError as kerr:
                 self.session.logging.error(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
-        else:
-            if self.session.exception_on_error:
-                raise Py4LexisException(f"Some errors occurred while retrieving datasets' status. See log file, please.")
-            else:
-                print(f"Some errors occurred while retrieving datasets' status. See log file, please.")
 
 
     def get_all_datasets(self, 
@@ -317,8 +347,8 @@ class DatasetsCLI:
                 To filter table of datasets by title. By default: "" (i.e. filter is off).
         """
 
-        print(f"Retrieving data of the datasets...")
         content, req_status = self.datasets.get_all_datasets(content_as_pandas=True)
+        
         if req_status is not None:
             try:
                 print(f"Formatting pandas DataFrame into ASCII table...")
@@ -343,15 +373,10 @@ class DatasetsCLI:
             except KeyError as kerr:
                 self.session.logging.error(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
-        else:
-            if self.session.exception_on_error:
-                raise Py4LexisException(f"Some errors occurred while retrieving all datasets. See log file, please.")
-            else:
-                print(f"Some errors occurred while retrieving all datasets. See log file, please.")
 
 
     def delete_dataset_by_id(self, 
-                             internal_id: str, 
+                             dataset_id: str, 
                              access: str, 
                              project: str) -> None:
         """
@@ -359,7 +384,7 @@ class DatasetsCLI:
 
             Parameters
             ----------
-            internal_id : str
+            dataset_id : str
                 InternalID of the dataset. Can be obtain by get_all_datasets() method.
             access : str
                 One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
@@ -371,25 +396,16 @@ class DatasetsCLI:
             None
         """
 
-        print(f"Deleting dataset with ID: {internal_id}")
-        content, req_status = self.datasets.delete_dataset_by_id(internal_id, access, project)
-
-        if req_status is not None:
-            print(f"Dataset has been deleted...")
-        else:
-            if self.session.exception_on_error:
-                raise Py4LexisException(f"Some errors occurred while deleting dataset. See log file, please.")
-            else:
-                print(f"Some errors occurred while deleting dataset. See log file, please.")
+        _, _ = self.datasets.delete_dataset_by_id(dataset_id, access, project)
 
 
     def download_dataset(self, 
-                         acccess: str,
-                         project: str,
-                         internal_id: str,
+                         dataset_id: str,
+                         access: str,
+                         project: str,                         
                          zone:str,
                          path: Optional[str] = "",
-                         destination_file: Optional[str] = "./download.tar.gz") -> None:
+                         destination_file: Optional[str] = "./downloaded.tar.gz") -> None:
         """
             Downloads dataset by a specified information as access, zone, project, InternalID.
             It is possible to specify by path parameter which exact file in the dataset should be downloaded.
@@ -401,7 +417,7 @@ class DatasetsCLI:
                 One of the access types [public, project, user]
             project: str
                 Project's short name.
-            internal_id: str
+            dataset_id: str
                 InternalID of the dataset.
             zone: str
                 iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
@@ -415,58 +431,16 @@ class DatasetsCLI:
             None
         """
 
-        print("Submitting download request on server...")
-        down_request = self.datasets._ddi_submit_download(dataset_id=internal_id, 
-                            zone=zone, access=acccess, project=project, path=path)
-        print("Download submitted!")
-
-        # Wait until it is ready
-        retries_max: int = 200
-        retries: int = 0
-        delay: int = 5 # secs
-        is_error: bool = False
-        print("Checking the status of download request...")
-        while retries < retries_max:
-            status = self.datasets._ddi_get_download_status(request_id=down_request)
-
-            if status["task_state"] == "SUCCESS":
-                # Download file
-                print("Starting downloading the dataset...")
-                self.datasets._ddi_download_dataset(request_id=down_request, destination_file=destination_file, progress_func=printProgressBar)
-                break
-
-            if status["task_state"] == "ERROR" or status["task_state"] == "FAILURE":
-                is_error = True
-                self.session.logging.error(f"DOWNLOAD --  request failed: {status['task_result']} -- FAILED")
-                print("Download request ended with FAILURE status! Dataset Download -- FAILED!")
-                break
-
-            self.session.logging.debug(f"DOWNLOAD -- waiting for download to become ready -- remaining retries {retries} -- OK")    
-            print(f"Download request not ready yet, {retries_max}/{retries} retries remaining")
-            # Refresh
-            self.session.refresh_token()
-            retries = retries + 1
-            time.sleep(delay)
-
-        if retries == retries_max and not is_error:
-            is_error = True
-            print(f"Reached maximum retries: {retries}/{retries_max} -- Download FAILED!")
-
-        if not is_error:
-            print("Dataset download -- SUCCESS!")
-        else:
-            if self.session.exception_on_error:
-                raise Py4LexisException(f"Some errors occurred while downloading dataset. See log file, please.")
-            else:
-                print(f"Some errors occurred while downloading dataset. See log file, please.")
-
+        self.datasets.download_dataset(dataset_id, access, project, zone, path, destination_file)
+        
 
     def get_list_of_files_in_dataset(self, 
-                                     internal_id: str, 
+                                     dataset_id: str, 
                                      access: str,
                                      project: str, 
                                      zone: str,
                                      path: Optional[str]="",
+                                     print_dir_tree: Optional[bool]=False,
                                      filter_filename: Optional[str]="", 
                                      filename_compare_type: Optional[str]="",
                                      filter_size: Optional[int]=0,
@@ -477,7 +451,7 @@ class DatasetsCLI:
 
             Parameters
             ----------
-            internal_id : str
+            dataset_id : str
                 InternalID of the dataset. Can be obtain by get_all_datasets() method.
             access : str
                 Access of the dataset. One of ["user", "project", "public"]. Can be obtain by get_all_datasets() method.
@@ -487,6 +461,8 @@ class DatasetsCLI:
                 iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
             path : str, optional
                 Path within the dataset. By default: path="".
+            print_dir_tree : bool, optional
+                If True, the directory tree within the dataset will be printed. Also, if True, printing the ASCII table will be suppressed.
             filter_filename : str, optional
                 To filter table of files by name. By default: "" (i.e. filter is off).
             filename_compare_type : str, optional
@@ -511,19 +487,27 @@ class DatasetsCLI:
             -------
             None
         """
+        if not print_dir_tree:
+            content, req_status = self.datasets.get_list_of_files_in_dataset(dataset_id, 
+                                                                            access,
+                                                                            project, 
+                                                                            zone, 
+                                                                            path=path,
+                                                                            content_as_pandas=True)
+        else:
+            content, req_status = self.datasets.get_list_of_files_in_dataset(dataset_id, 
+                                                                            access,
+                                                                            project, 
+                                                                            zone, 
+                                                                            path=path,
+                                                                            content_as_pandas=False)
+            
 
-        print(f"Retrieving data of files in the dataset...")
-        content, req_status = self.datasets.get_list_of_files_in_dataset(internal_id, 
-                                                                         access,
-                                                                         project, 
-                                                                         zone, 
-                                                                         path=path,
-                                                                         content_as_pandas=True)
-        if req_status is not None:
+        if req_status is not None and not print_dir_tree:
             try:
                 print(f"Formatting pandas DataFrame into ASCII table...")
                 
-                cols: list[str] = ["Filename", "Size", "Type", "CreateTime", "Checksum"]
+                cols: list[str] = ["Filename", "Path", "Size", "CreateTime", "Checksum"]
                 datasets_table: DataFrame = content
 
                 if filter_filename != "":
@@ -533,7 +517,6 @@ class DatasetsCLI:
                         datasets_table = datasets_table[filter_filename in datasets_table["Filename"]]
                     else:
                         print("Wrong comparison type for filename.")
-                        ["Filename", "Size", "Type", "CreationTime", "Checksum"]
                 if filter_size > 0:
                     if size_compare_type == "eq":
                         datasets_table = datasets_table[datasets_table["Size"] == filter_size]
@@ -558,8 +541,9 @@ class DatasetsCLI:
             except KeyError as kerr:
                 self.session.logging.error(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
-        else:
-            if self.session.exception_on_error:
-                raise Py4LexisException(f"Some errors occurred while retrieving list of files in dataset. See log file, please.")
-            else:
-                print(f"Some errors occurred while retrieving list of files in dataset. See log file, please.")
+
+        if req_status is not None and print_dir_tree:
+            tree_content: TreeDirectoryObject = TreeDirectoryObject(content)
+            tree_items: Generator[DirectoryTree, None, None] = DirectoryTree.make_tree(tree_content)
+            for item in tree_items:
+                print(item.to_string())

@@ -1,8 +1,10 @@
 
-from typing import Optional
+from __future__ import annotations
+from typing import Generator, Optional
+from py4lexis.custom_types.directory_tree import TreeDirectoryObject
+from py4lexis.directory_tree import DirectoryTree
 from py4lexis.session import LexisSession
 from pandas import DataFrame
-import json
 
 def printProgressBar(iteration: int, 
                      total: int, 
@@ -49,7 +51,7 @@ def printProgressBar(iteration: int,
         print()
 
 
-def convert_content_of_get_datasets_status_to_pandas(session: LexisSession, 
+def convert_get_datasets_status_to_pandas(session: LexisSession, 
                                                      content: list[dict], 
                                                      supress_print: Optional[bool]=False) -> DataFrame | None:
     """
@@ -83,7 +85,7 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
             print(f"Converting HTTP content from JSON to pandas Dataframe...")
 
         for i in range(len(content)):
-            if "Filename" in content[i]:
+            if "filename" in content[i]:
                 filename: str = content[i]["filename"]
             else:
                 filename: str = str("UKNOWN Filename")
@@ -126,25 +128,20 @@ def convert_content_of_get_datasets_status_to_pandas(session: LexisSession,
             datasets_table.loc[i] = [filename, project, task_state, task_result,
                                      transfer_type, dataset_id, request_id, created_at]
         
-    except KeyError as kerr:
+    except:
         is_error = True
-        session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
-        session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
-        session.logging.debug(f"Printing HTTP request content:")
-        session.logging.debug(json.dumps(content, indent=4))
+        session.logging.error(f"Unexpected error while converting datasets' upload status from content to pandas DataFrame.")
         
         if not supress_print:
-            print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
+            print(f"Unexpected error while converting  datasets' upload status from content to pandas DataFrame.")
 
     if is_error:
-        if supress_print:
-            print("Some errors occurred. See log file, please.")
         return None
     else:
         return datasets_table
  
 
-def convert_content_of_get_all_datasets_to_pandas(session: LexisSession, 
+def convert_get_all_datasets_to_pandas(session: LexisSession, 
                                                   content: list[dict],
                                                   supress_print: Optional[bool]=False) -> DataFrame | None:
     """
@@ -295,28 +292,23 @@ def convert_content_of_get_all_datasets_to_pandas(session: LexisSession,
             datasets_table.loc[i] = [title, access, project, zone, internalID, creation_date, owner,
                                      creator, contributor, publisher, publication_year, resource_type,
                                      compression, encryption]
-
-    except KeyError as kerr:
+    
+    except:
         is_error = True
-        session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
-        session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
-        session.logging.debug(f"Printing HTTP request content:")
-        session.logging.debug(json.dumps(content, indent=4))
+        session.logging.error(f"Unexpected error while converting information about datasets from content to pandas DataFrame.")
         
         if not supress_print:
-            print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
+            print(f"Unexpected error while converting information about datasets from content to pandas DataFrame.")
 
     if is_error:
-        if supress_print:
-            print("Some errors occurred. See log file, please.")
         return None
     else:
         return datasets_table
     
     
-def convert_content_of_get_list_of_files_in_datasets_to_pandas(session: LexisSession, 
-                                                               content: list[dict],
-                                                               supress_print: Optional[bool]=False) -> DataFrame | None:
+def convert_dir_tree_to_pandas(session: LexisSession, 
+                                       content: list[dict],
+                                       supress_print: Optional[bool]=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET list of files in dataset from JSON format to pandas DataFrame.
         
@@ -335,7 +327,7 @@ def convert_content_of_get_list_of_files_in_datasets_to_pandas(session: LexisSes
             List of files in dataset formated into DataFrame table. None is returned when some errors have occured.
     """
 
-    cols: list[str] = ["Filename", "Size", "Type", "CreateTime", "Checksum"]
+    cols: list[str] = ["Filename", "Path", "Size", "CreateTime", "Checksum"]
     
     datasets_table: DataFrame = DataFrame(columns=cols)
 
@@ -345,51 +337,25 @@ def convert_content_of_get_list_of_files_in_datasets_to_pandas(session: LexisSes
 
         if not supress_print:
             print(f"Converting HTTP content from JSON to pandas Dataframe...")
-
-        content = content["contents"]
-        for i in range(len(content)):
-            if "name" in content[i]:
-                filename: str = content[i]["name"]
-            else:
-                filename: str = str("UKNOWN Name")
-
-            size: int | str = ""
-            if "size" in content[i]:
-                size = int(content[i]["size"])
-            else:
-                size = str("UKNOWN Size")                
-
-            if "type" in content[i]:
-                file_type: str = content[i]["type"]
-            else:
-                file_type: str = str("UKNOWN Type")
-
-            if "create_time" in content[i]:
-                creation_time:  str = content[i]["create_time"]
-            else:
-                creation_time: str = str("UKNOWN Create Time")
-
-            if "checksum" in content[i]:
-                checksum: str = str(content[i]["checksum"])
-            else:
-                checksum: str = str("UKNOWN Checksum")
-
-            
-            datasets_table.loc[i] = [filename, size, file_type, creation_time, checksum]
         
-    except KeyError as kerr:
+
+        tree_content: TreeDirectoryObject = TreeDirectoryObject(content)
+        tree_items: Generator[DirectoryTree, None, None] = DirectoryTree.make_tree(tree_content)
+        row_id: int = 0
+        for item in tree_items:
+            row: list[str | int] | None = item.to_dataframe_row()
+            if row is not None:
+                datasets_table.loc[row_id] = item.to_dataframe_row()
+                row_id = row_id + 1
+        
+    except:
         is_error = True
-        session.logging.debug(f"Converting datasets to list pandas Dataframe -- FAIL")
-        session.logging.debug(f"Wrong or missing key '{kerr}' in JSON response content!!!")
-        session.logging.debug(f"Printing HTTP request content:")
-        session.logging.debug(json.dumps(content, indent=4))
+        session.logging.error(f"Unexpected error while converting directory tree from content to pandas DataFrame.")
         
         if not supress_print:
-            print(f"Wrong or missing key '{kerr}' in JSON response content!!!")
+            print(f"Unexpected error while converting directory tree from content to pandas DataFrame.")
 
     if is_error:
-        if supress_print:
-            print("Some errors occurred. See log file, please.")
         return None
     else:
-        return datasets_table
+        return datasets_table  
