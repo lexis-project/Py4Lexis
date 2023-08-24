@@ -1,507 +1,938 @@
-# datasets.py
-
+from __future__ import annotations
+from typing import Optional
 import requests as req
+from requests import Response
 from datetime import date, datetime
 from py4lexis.ddi.tus_client import TusClient
-from src.py4lexis.exceptions import Py4LexisException
 from tusclient import exceptions
+from pandas import DataFrame
+from py4lexis.exceptions import Py4LexisException
+from py4lexis.session import LexisSession
+from py4lexis.utils import convert_get_all_datasets_to_pandas, \
+                           convert_get_datasets_status_to_pandas, \
+                           convert_dir_tree_to_pandas, printProgressBar
+from py4lexis.ddi.uploader import Uploader
 import json
 import time
 
-class Datasets:
-    def __init__(self, session):
+class Datasets(object):
+    def __init__(self,
+                 session: LexisSession,
+                 print_content: Optional[bool]=False,
+                 suppress_print: Optional[bool]=True) -> None:
         """
             A class holds methods to manage datasets within LEXIS platform.
 
             Attributes
             ----------
-            session : class, LEXIS session
+            session : class
+                Class that holds LEXIS session
+            print_content : bool, optional
+                If True then contents of all requests will be printed.
+            suppress_print: bool, optional
+                If True then all prints are suppressed. By default: suppress_print=True
 
             Methods
             -------
-            create_dataset(access, project, push_method=None, path=None, contributor=None, creator=None,
-                            owner=None, publicationYear=None, publisher=None, resourceType=None, title=None)
+            create_dataset(access: str, 
+                           project: str, 
+                           push_method: Optional[str]="empty", 
+                           zone: Optional[str]="IT4ILexisZone",
+                           path: Optional[str]="", 
+                           contributor: Optional[list[str]]=["UNKNOWN contributor"], 
+                           creator: Optional[list[str]]=["UNKNOWN creator"],
+                           owner: Optional[list[str]]=["UNKNOWN owner"], 
+                           publicationYear: Optional[str]=str(date.today().year),
+                           publisher: Optional[list[str]]=["UNKNOWN publisher"], 
+                           resourceType: Optional[str]=str("UNKNOWN resource type"),
+                           title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]
                 Create an empty dataset with specified attributes.
 
-            tus_uploader(access, project, filename, file_path=None, path=None, contributor=None, creator=None,
-                         owner=None, publicationYear=None, publisher=None, resourceType=None, title=None,
-                         expand=None, encryption=None)
-                Create a dataset and upload a data by TUS client.
+            tus_uploader_new(access: str, 
+                             project: str, 
+                             filename: str, 
+                             zone: Optional[str]="IT4ILexisZone", 
+                             file_path: Optional[str]="./",
+                             path: Optional[str]="", 
+                             contributor: Optional[list[str]]=["NONAME contributor"], 
+                             creator: Optional[list[str]]=["NONAME creator"],
+                             owner: Optional[list[str]]=["NONAME owner"], 
+                             publicationYear: Optional[str]=str(date.today().year), 
+                             publisher: Optional[list[str]]=["NONAME publisher"],
+                             resourceType: Optional[str]="NONAME resource type", 
+                             title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                             expand: Optional[str]="no", 
+                             encryption: Optional[str]="no") -> None
+                Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
 
-            get_dataset_status()
+            tus_uploader_rewrite(dataset_id: str,
+                                 dataset_title: str,
+                                 access: str, 
+                                 project: str, 
+                                 filename: str, 
+                                 zone: str="IT4ILexisZone", 
+                                 file_path: Optional[str]="./",
+                                 path: Optional[str]="",                               
+                                 encryption: Optional[str]="no") -> None:
+                Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
+
+            get_dataset_status(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
                 Prints a table of the datasets' staging states.
 
-            get_all_dataset()
+            get_all_datasets(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
                 Prints a table of the all existing datasets.
 
-            delete_dataset_by_id(internal_id, access, project)
+            delete_dataset_by_id(dataset_id: str, 
+                                 access: str, 
+                                 project: str) -> tuple[list[dict], int] | tuple[None, None]
                 Deletes a dataset by a specified internalID.
+
+            download_dataset(acccess: str, 
+                             project: str, 
+                             dataset_id: str, 
+                             zone: str,
+                             path: Optional[str]="",
+                             destination_file: Optional[str]="./download.tar.gz") -> None
+                Downloads dataset by a specified informtions as access, zone, project, Interna_Id.
+                It is possible to specify by path parameter which exact file in the dataset should be downloaded.
+                It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
+
+            get_list_of_files_in_dataset(dataset_id: str, 
+                                         access: str,
+                                         project: str, 
+                                         zone: str, 
+                                         path: Optional[str]="",
+                                         content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame
+                List all files within the dataset.
         """
         self.session = session
+        self.print_content = print_content
+        self.suppress_print = suppress_print
 
-    def create_dataset(self, access, project, push_method=None, path=None, contributor=None, creator=None,
-                       owner=None, publicationYear=None, publisher=None, resourceType=None, title=None):
+
+    def create_dataset(self, 
+                       access: str, 
+                       project: str, 
+                       push_method: Optional[str]="empty", 
+                       zone: Optional[str]="IT4ILexisZone",
+                       path: Optional[str]="", 
+                       contributor: Optional[list[str]]=["UNKNOWN contributor"], 
+                       creator: Optional[list[str]]=["UNKNOWN creator"],
+                       owner: Optional[list[str]]=["UNKNOWN owner"], 
+                       publicationYear: Optional[str]=str(date.today().year),
+                       publisher: Optional[list[str]]=["UNKNOWN publisher"], 
+                       resourceType: Optional[str]=str("UNKNOWN resource type"),
+                       title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]:
         """
             Creates an empty dataset with specified attributes
 
             Parameters
             ----------
-            access : str
+            access : str, 
                 One of the access types [public, project, user]
-            project: str
+            project: str, 
                 Project's short name.
             push_method: str, optional
-                By default: push_mehtod = "empty"
+                By default: "empty".
+            zone: str, optional
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
             path: str, optional
-                By default, root path is set, i.e. './'
-            contributor: list (str), optional
-                By default: ["UNKNOWN contributor"]
-            creator: list (str), optional
-                By default: ["UNKNOWN creator"]
-            owner: list (str), optional
-                By default: ["UNKNOWN owner"]
+                By default: "./"
+            contributor: list[str], optional
+                By default: ["UNKNOWN contributor"].
+            creator: list[str], optional
+                By default: ["UNKNOWN creator"].
+            owner: list[str], optional
+                By default: ["UNKNOWN owner"].
             publicationYear: str, optional
-                By default: current year
-            publisher: list (str), optional
-                By default: ["UNKNOWN publisher"]
+                By default: CURRENT_YEAR.
+            publisher: list[str], optional
+                By default: ["UNKNOWN publisher"].
             resourceType: str, optional
-                By default: "UNKNOWN resource type"
+                By default: "UNKNOWN resource type".
             title: str, optional
-                By default: "UNTITLED_Dataset_" + timestamp
+                By default: "UNTITLED_Dataset_" + TIMESTAMP.
 
-            Return
-            ------
-            content: content of the HTTP request as JSON
-            req_status: status of the HTTP request
+            Returns
+            -------
+            dict | None
+                Content of the HTTP request as JSON. None is returned if some errors have occured.
+            int | None
+                Status of the HTTP request. None is returned if some errors have occured.
         """
-        if push_method is None:
-            push_method = "empty"
-        if path is None:
-            path = ""
-        if contributor is None:
-            contributor = ["UNKNOWN contributor"]
-        if creator is None:
-            creator = ["UNKNOWN creator"]
-        if owner is None:
-            owner = ["UNKNOWN owner"]
-        if publicationYear is None:
-            publicationYear = str(date.today().year)
-        if publisher is None:
-            publisher = ["UNKNOWN publisher"]
-        if resourceType is None:
-            resourceType = "UNKNOWN resource type"
-        if title is None:
-            title = "UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+        url: str = self.session.API_PATH + "/dataset"
+        post_body: dict = {
+            "push_method": push_method,
+            "access": access,
+            "project": project,
+            "zone": zone,
+            "path": path,
+            "metadata": {
+                "contributor": contributor,
+                "creator": creator,
+                "owner": owner,
+                "publicationYear": publicationYear,
+                "publisher": publisher,
+                "resourceType": resourceType,
+                "title": title
+            }
+        }
 
-        self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- PROGRESS")
-        has_content = False
-        content = None
-        req_status = None
-        status = True
-        while not has_content:
-            response = req.post(self.session.API_PATH + 'dataset',
-                                headers=self.session.API_HEADER,
-                                json={
-                                    "push_method": push_method,
-                                    "access": access,
-                                    "project": project,
-                                    "path": path,
-                                    "metadata": {
-                                        "contributor": contributor,
-                                        "creator": creator,
-                                        "owner": owner,
-                                        "publicationYear": publicationYear,
-                                        "publisher": publisher,
-                                        "resourceType": resourceType,
-                                        "title": title
-                                    }
-                                }
-                                )
-            content = response.json()
-            req_status = response.status_code
+        self.session.logging.debug(f"POST -- {url} -- CREATE -- PROGRESS")
+        status_solved: bool = False
+        content: dict = {}
+        is_error: bool = False
 
-            # check token if valid
-            if 'message' in content:
-                if content['message'] == 'token no longer valid':
-                    self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- TOKEN -- FAIL")
-                    self.session.logging.debug(f"Refreshing token -- PROGRESS")
-                    self.session.refresh_token()
-                    self.session.logging.debug(f"Refreshing token -- OK")
-                else:
-                    has_content = True
-                    status = False
-                    self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- TOKEN -- FAIL")
-            else:
-                has_content = True
-                self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset -- OK")
+        if not self.suppress_print:
+            print(f"Creating dataset:"+
+                  f"    title: {title}\n"+ 
+                  f"    access:{access}\n"+
+                  f"    project:{project}\n"+
+                  f"    push_method:{push_method}\n"+
+                  f"    zone:{zone}")
 
-            if not status:
-                print("Some errors occurred. See log file, please.")
+        while not status_solved:
+            response: Response = req.post(
+                    self.session.API_PATH + "/dataset",
+                    headers=self.session.API_HEADER,
+                    json=post_body)
+            
+            content, status_solved, is_error = self.session.handle_request_status(response,
+                                                                                  f"POST -- {url} -- CREATE", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)  
 
-        return content, req_status
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while creating the dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while creating the dataset. See log file, please.")
+            return None, None
+        else:
+            if not self.suppress_print:
+                print(f"The dataset was successfully created:")
+            if self.print_content:
+                print(f"content: {content}")
+            return content, response.status_code
+    
 
-    def tus_uploader(self, access, project, filename, file_path=None, path=None, contributor=None, creator=None,
-                     owner=None, publicationYear=None, publisher=None, resourceType=None, title=None,
-                     expand=None, encryption=None):
+    def tus_uploader_new(self, 
+                         access: str, 
+                         project: str, 
+                         filename: str, 
+                         zone: Optional[str]="IT4ILexisZone", 
+                         file_path: Optional[str]="./",
+                         path: Optional[str]="", 
+                         contributor: Optional[list[str]]=["NONAME contributor"], 
+                         creator: Optional[list[str]]=["NONAME creator"],
+                         owner: Optional[list[str]]=["NONAME owner"], 
+                         publicationYear: Optional[str]=str(date.today().year), 
+                         publisher: Optional[list[str]]=["NONAME publisher"],
+                         resourceType: Optional[str]="NONAME resource type", 
+                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                         expand: Optional[str]="no", 
+                         encryption: Optional[str]="no") -> None:
         """
-            Upload a data by TUS client to the specified dataset.
+            Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
 
             Parameters
             ----------
             access : str
-                One of the access types [public, project, user]
+                One of the access types [public, project, user].
             project: str
-                Project's short name.
+                Project's short name in which dataset will be stored.
             filename: str
-                Name of a file to be uploaded
-            file_path: str
-                Path to a file in user's machine
+                Name of a file to be uploaded.
+            zone: str | None, optional
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+            file_path: str | None, optional,
+                Path to a file in user's machine. By default "./".
             path: str, optional
-                By default, root path is set, i.e. './'.
-            contributor: list (str), optional
-                By default: ["UNKNOWN contributor"]
-            creator: list (str), optional
-                By default: ["UNKNOWN creator"]
-            owner: list (str), optional
-                By default: ["UNKNOWN owner"]
+                By default, root path is set, i.e. "./".
+            contributor: list[str], optional
+                By default: ["UNKNOWN contributor"].
+            creator: list[str], optional
+                By default: ["UNKNOWN creator"].
+            owner: list[str], optional
+                By default: ["UNKNOWN owner"].
             publicationYear: str, optional
-                By default: current year
-            publisher: list (str), optional
-                By default: ["UNKNOWN publisher"]
+                By default: CURRENT_YEAR.
+            publisher: list[str], optional
+                By default: ["UNKNOWN publisher"].
             resourceType: str, optional
-                By default: "UNKNOWN resource type"
+                By default: "UNKNOWN resource type".
             title: str, optional
-                By default: "UNTITLED_Dataset_" + timestamp
+                By default: "UNTITLED_Dataset_" + TIMESTAMP.
             expand: str, optional
-                By default: "no"
+                By default: "no".
             encryption: str, optional
-                By default: "no"
+                By default: "no".
 
-            Return
-            ------
-            Prints a progress bar of the processing upload.
+            Returns
+            -------
+            None
         """
-        if path is None:
-            path = ""
-        if file_path is None:
-            file_path = "/"
-        if contributor is None:
-            contributor = ["NONAME contributor"]
-        if creator is None:
-            creator = ["NONAME creator"]
-        if owner is None:
-            owner = ["NONAME owner"]
-        if publicationYear is None:
-            publicationYear = str(date.today().year)
-        if publisher is None:
-            publisher = ["NONAME publisher"]
-        if resourceType is None:
-            resourceType = "NONAME resource type"
-        if title is None:
-            title = "UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-        if expand is None:
-            expand = "no"
-        if encryption is None:
-            encryption = "no"
+        file_path = file_path + filename
+        metadata: dict = {
+            "path": path,
+            "zone": zone,
+            "filename": filename,
+            "user": self.session.username,
+            "project": project,
+            "access": access,
+            "expand": expand,
+            "encryption": encryption,
+            "metadata": json.dumps({
+                "contributor": contributor,
+                "creator": creator,
+                "owner": owner,
+                "publicationYear": publicationYear,
+                "publisher": publisher,
+                "resourceType": resourceType,
+                "title": title
+            })
+        }
 
-        status = True
+        self._tus_upload(file_path, metadata)
+
+
+    def tus_uploader_rewrite(self, 
+                             dataset_id: str,
+                             dataset_title: str,
+                             access: str, 
+                             project: str, 
+                             filename: str, 
+                             zone: str="IT4ILexisZone", 
+                             file_path: Optional[str]="./",
+                             path: Optional[str]="",                               
+                             encryption: Optional[str]="no") -> None:
+        """
+            Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
+
+            Parameters
+            ----------
+            dataset_id : str
+                Internal ID of existing dataset.
+            dataset_title : str
+                Title of existing dataset.
+            access : str
+                One of the access types [public, project, user].
+            project: str
+                Project's short name in which dataset will be stored.
+            filename: str
+                Name of a file to be uploaded.
+            zone: str | None, optional
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone".
+            file_path: str | None, optional,
+                Path to a file in user's machine. By default "./".
+            path: str, optional
+                By default, root path is set, i.e. "./".
+            encryption: str, optional
+                By default: "no".
+
+            Returns
+            -------
+            None
+        """
+        file_path = file_path + filename
+        metadata: dict = {
+            "filename": filename,
+            "project": project,
+            "access": access,
+            "zone": zone,
+            "metadata": json.dumps({
+                "title": dataset_title
+            }),
+            "encryption": encryption,
+            "expand": "yes",
+            "path": path,
+            "dataset_id": dataset_id
+        }
+
+        self._tus_upload(file_path, metadata)
+
+
+    def _tus_upload(self, file_path: str, metadata: dict):
+        if not self.suppress_print:
+            print(f"Initialising TUS upload with the following metadata:\n"+
+                  f"    {metadata}")
+            
+        url: str = self.session.API_PATH + "/transfer/upload/"
+        status: bool = True
         try:
-            # TODO: Refresh token if not valid and repeat
-            tus_client = TusClient(self.session.API_PATH + 'transfer/upload/',
-                                   headers=self.session.API_HEADER)
-            self.session.logging.debug(f"TUS client initialised -- OK")
+            # TODO: Make better check if token is alive
+            self.session.refresh_token()
 
-            uploader = tus_client.uploader(file_path + filename, chunk_size=1048576,
-                                           metadata={
-                                               'path': path,
-                                               'zone': self.session.ZONENAME,
-                                               'filename': filename,
-                                               'user': self.session.username,
-                                               'project': project,
-                                               'access': access,
-                                               'expand': expand,
-                                               'encryption': encryption,
-                                               'metadata': json.dumps(
-                                                   {
-                                                       'contributor': contributor,
-                                                       'creator': creator,
-                                                       'owner': owner,
-                                                       'publicationYear': publicationYear,
-                                                       'publisher': publisher,
-                                                       'resourceType': resourceType,
-                                                       'title': title
-                                                   })
-                                           }
-                                           )
-            self.session.logging.debug(f"TUS upload initialised -- OK")
+            if not self.suppress_print:
+                print("Initialising TUS client...")
+
+            tus_client: TusClient = TusClient(url,
+                                              headers=self.session.API_HEADER)
+            
+            self.session.logging.debug(f"TUS UPLOAD -- TUS client initialised -- OK")
+            if not self.suppress_print:
+                print(f"Initialising TUS client -- OK\n"+
+                      f"Initialising TUS uploader...")
+
+            uploader: Uploader = tus_client.uploader(file_path=file_path, 
+                                                     chunk_size=1048576,
+                                                     metadata=metadata)
+            
+            self.session.logging.debug(f"TUS UPLOAD -- TUS upload initialised -- OK")
+            if not self.suppress_print:
+                print("Initialising TUS uploader -- OK")
             uploader.upload()
 
         except exceptions.TusCommunicationError as te:
-            self.session.logging.error("Upload error: {0}".format(te.response_content))
             status = False
+            self.session.logging.error(f"TUS UPLOAD -- Upload error: {te.response_content} -- FAILED")
 
         if not status:
-            print("Some errors occurred. See log file, please.")
+            if not self.suppress_print:
+                print(f"Some errors occurred during the TUS upload. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred during the TUS upload. See log file, please.")
 
-    def get_dataset_status(self):
+
+    def get_dataset_status(self, 
+                           content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
         """
-            Get datasets' status
+            Get datasets' upload status information.
 
-            Return
-            ------
-            content: content of the HTTP request as JSON
-            req_status: status of the HTTP request
+            Parameters
+            ----------
+            content_as_pandas : bool, optional
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
+
+            Returns
+            -------
+            list[dict] | DataFrame | None
+                Content of the HTTP request as list of JSONs dictionaries or pandas DataFrame if 'content_as_pandas=True'.  None is returned if some errors have occured.
+            int | None
+                Status of the HTTP request.  None is returned if some errors have occured.
         """
+        if not self.suppress_print:
+            print(f"Retrieving upload status of the datasets...")
 
-        self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- PROGRESS")
-        has_content = False
-        content = None
-        req_status = None
-        status = True
-        while not has_content:
-            response = req.get(self.session.API_PATH + 'transfer/status',
-                               headers={'Authorization': 'Bearer ' + self.session.TOKEN})
-            content = response.json()
-            req_status = response.status_code
+        url: str = self.session.API_PATH + "/transfer/status"
 
-            # check token if valid
-            if 'message' in content:
-                if content['message'] == 'token no longer valid':
-                    self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- TOKEN -- FAIL")
-                    self.session.logging.debug(f"Refreshing token -- PROGRESS")
-                    self.session.refresh_token()
-                    self.session.logging.debug(f"Refreshing token -- OK")
-                else:
-                    has_content = True
-                    status = False
-                    self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- TOKEN -- FAIL")
+        self.session.logging.debug(f"GET -- {url} -- PROGRESS")
+        status_solved: bool = False
+        content: list[dict] | DataFrame | None = []
+        is_error: bool = True
+
+        while not status_solved:
+            response: Response = req.get(url,
+                                            headers={"Authorization": "Bearer " + self.session.TOKEN})
+            
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"GET -- {url}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)        
+
+        if not is_error and content_as_pandas:
+            content = convert_get_datasets_status_to_pandas(self.session, 
+                                                            content, 
+                                                            supress_print=self.suppress_print)
+
+            if content is None:
+                is_error = True
+                self.session.logging.debug(f"GET -- {url} -- CONVERT TO DATAFRAME -- FAILED")
             else:
-                has_content = True
-                self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- OK")
+                self.session.logging.debug(f"GET -- {url} -- CONVERT TO DATAFRAME -- OK")    
+                
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving upload status of datasets. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving upload status of datasets. See log file, please.")
+            return None, None
+        else:
+            if not self.suppress_print:
+                    print("Upload status of datasets successfully retrived (and converted) -- OK") 
+            if self.print_content:
+                print(f"content: {content}")
+            return content, response.status_code
 
-        if not status:
-            print("Some errors occurred. See log file, please.")
 
-        return content, req_status
-
-    def get_all_datasets(self):
+    def get_all_datasets(self, 
+                         content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
         """
             Get all existing datasets
 
-            Return
-            ------
-            content: content of the HTTP request as JSON
-            req_status: status of the HTTP request
+            Parameters
+            ----------
+            content_as_pandas: bool, optional
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False
+
+            Returns
+            -------
+            list[dict] | DataFrame | None
+                Content of the HTTP request as JSON or as pandas DataFrame if 'content_as_pandas=True'. None if some errors have occured.
+            int | None
+                Status of the HTTP request. None if some errors have occured.
         """
-        self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- PROGRESS")
-        has_content = False
-        content = None
-        req_status = None
-        status = True
-        while not has_content:
-            response = req.post(self.session.API_PATH + 'dataset/search/metadata',
-                                headers=self.session.API_HEADER,
-                                json={})
-            content = response.json()
-            req_status = response.status_code
 
-            # check token if valid
-            if 'message' in content:
-                if content['message'] == 'token no longer valid':
-                    self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- TOKEN -- FAIL")
-                    self.session.logging.debug(f"Refreshing token -- PROGRESS")
-                    self.session.refresh_token()
-                    self.session.logging.debug(f"Token refreshed -- OK")
-                else:
-                    has_content = True
-                    status = False
-                    self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- TOKEN -- FAIL")
+        if not self.suppress_print:
+            print(f"Retrieving data of the datasets...")
+
+        url: str = self.session.API_PATH + "/dataset/search/metadata"
+
+        self.session.logging.debug(f"POST -- {url} -- PROGRESS")
+        status_solved: bool = False
+        content: list[dict] | DataFrame | None = None
+        is_error: bool = True
+        while not status_solved:
+            response: Response = req.post(url,
+                                          headers=self.session.API_HEADER,
+                                          json={})
+
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"POST -- {url}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
+        
+        if not is_error and content_as_pandas:
+            content = convert_get_all_datasets_to_pandas(self.session, 
+                                                         content, 
+                                                         supress_print=self.suppress_print)
+
+            if content is None:
+                is_error = True
+                self.session.logging.debug(f"POST -- {url} -- CONVERT TO DATAFRAME -- FAILED")
+                
             else:
-                has_content = True
-                self.session.logging.debug(f"POST -- {self.session.API_PATH}dataset/search/metadata/ -- OK")
+                self.session.logging.debug(f"POST -- {url} -- CONVERT TO DATAFRAME -- OK")
+                    
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving data of the datasets. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving data of the datasets. See log file, please.")
+            return None, None
+        else:
+            if not self.suppress_print:
+                    print(f"Data of the datasets successfully retrieved (and converted)....")
+            if self.print_content:
+                print(f"content: {content}")
+            return content, response.status_code
 
-        if not status:
-            print("Some errors occurred. See log file, please.")
 
-        return content, req_status
-
-    def delete_dataset_by_id(self, internal_id, access, project):
+    def delete_dataset_by_id(self, 
+                             dataset_id: str, 
+                             access: str, 
+                             project: str) -> tuple[list[dict], int] | tuple[None, None]:
         """
             Deletes a dataset by a specified internalID.
 
             Parameters
             ----------
-            internal_id: str
-                InternalID of the dataset
+            dataset_id : str
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
             access : str
-                One of the access types [public, project, user]
+                One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
             project: str
-                Project's short name.
+                Project's short name in which dataset is stored. Can be obtain by get_all_datasets() method.
 
-            Return
-            ------
-            content: content of the HTTP request as JSON
-            req_status: status of the HTTP request
+            Returns
+            -------
+            list[dict] | None
+                Content of the HTTP request as JSON. None if some errors have occured.
+            int | None
+                Status of the HTTP request. None if some errors have occured.
         """
-        self.session.logging.debug(f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id} -- PROGRESS")
-        deleted = False
-        content = None
-        req_status = None
-        status = True
-        while not deleted:
-            response = req.delete(self.session.API_PATH + 'dataset',
+        if not self.suppress_print:
+            print(f"Deleting dataset with ID: {dataset_id}")
+
+        url: str = self.session.API_PATH + "/dataset"
+        delete_body: dict = {
+            "access": access,
+            "project": project,
+            "internalID": dataset_id
+        }
+
+        self.session.logging.debug(f"DELETE -- {url} -- ID:{dataset_id} -- PROGRESS")
+        status_solved: bool = False
+        content: dict = {}
+        is_error: bool = False
+        while not status_solved:
+            response = req.delete(url,
                                   headers=self.session.API_HEADER,
-                                  json={
-                                      "access": access,
-                                      "project": project,
-                                      "internalID": internal_id
-                                  })
-            content = response.json()
-            req_status = response.status_code
+                                  json=delete_body)
 
-            # check token if valid
-            if 'message' in content:
-                if content['message'] == 'token no longer valid':
-                    self.session.logging.debug(f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id} -- TOKEN -- FAILED")
-                    self.session.logging.debug(f"Refreshing token -- PROGRESS")
-                    self.session.refresh_token()
-                    self.session.logging.debug(f"Refreshing token -- OK")
-                else:
-                    deleted = True
-                    status = False
-                    self.session.logging.debug(f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id} -- TOKEN -- FAILED")
-            else:
-                deleted = True
-                self.session.logging.debug(f"DELETE -- {self.session.API_PATH}dataset -- ID:{internal_id} -- OK")
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"DELETE -- {url} -- ID:{dataset_id}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
 
-        if not status:
-            print("Some errors occurred. See log file, please.")
-
-        return content, req_status
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while deleting the dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while deleting the dataset. See log file, please.")
+            return None, None
+        else:
+            if not self.suppress_print:
+                print(f"Dataset has been deleted...")
+            if self.print_content:
+                print(f"content: {content}")
+            return content, response.status_code
     
 
+    def _ddi_submit_download(self, 
+                             dataset_id: str, 
+                             zone: str, 
+                             access: str, 
+                             project: str, 
+                             path: str) -> str | None:
+        """
+            Private method to obtain 'requestID' for the dataset download.
 
-    def _ddi_submit_download(self, dataset_id, zone, access, project, path):
-        download_body = {
-            'zone': zone,
-            'access': access,
-            'project': project,
-            'dataset_id': dataset_id,
-            'path': path
+            Parameters
+            ----------
+            dataset_id : str
+                InternalID of the dataset.
+            zone : str
+                Zone of the dataset.
+            access : str
+                Access of the dataset. One of the access types [public, project, user].
+            project : str
+                Project's short name.
+
+            Returns
+            -------
+            str | None
+                ID of the request. None if some errors occur
+        """
+        url: str = self.session.API_PATH + "/transfer/download"
+        download_body: dict = {
+            "zone": zone,
+            "access": access,
+            "project": project,
+            "dataset_id": dataset_id,
+            "path": path
         }
         
-        res = req.post(url=self.session.API_PATH + 'transfer/download',
-                       headers=self.session.API_HEADER,
-                        json=download_body)
-        
-        if res.status_code != 200:
-            self.session.logging.error(f"POST -- {self.session.API_PATH}transfer/download -- ID:{dataset_id} -- FAILED")
-            raise Py4LexisException(res.content)
-        else:
-            self.session.logging.debug(f"POST -- {self.session.API_PATH}transfer/download -- ID:{dataset_id} -- OK")
-            return res.json()['requestId']
+        status_solved: bool = False
+        is_error: bool = False
+        content: dict = {}
+        try:
+            while not status_solved:
+                response: Response = req.post(url,
+                                              headers=self.session.API_HEADER,
+                                              json=download_body)
 
-
-
-    def _ddi_get_download_status(self, request_id):
-        res = req.get(url=self.session.API_PATH + 'transfer/status/' + request_id, headers=self.session.API_HEADER)
-        if res.status_code != 200:
-            self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/status -- ID:{request_id} -- FAILED")
-            raise Py4LexisException(res.content)
-        else:
-            self.session.logging.debug(f"GET -- {self.session.API_PATH}transfer/status -- ID:{request_id} -- ok")
-            return res.json()
-
-
-
-    def _ddi_download_dataset(self, request_id, destination_file, progress_func = None):
-        with req.get(url=self.session.API_PATH + 'transfer/download/' + request_id,
-                        headers=self.session.API_HEADER,
-                        stream=True) as request:
+                content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                      f"POST -- {url} -- DATA_ID:{dataset_id}", 
+                                                                                      to_json=True,
+                                                                                      suppress_print=self.suppress_print)
             
-            if request.status_code != 200:
-                self.session.logging.error(f"GET -- {self.session.API_PATH}transfer/download -- ID:{request_id} -- FAILED")
-                raise Py4LexisException(request.content)
+            if not is_error:
+                request_id: str = content["requestId"]
+
+        except KeyError as kerr:
+            is_error = True
+            self.session.logging.debug(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
+        
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while submitting download. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while submitting download. See log file, please.")
+            return None
+        else:
+            return request_id
+            
+
+    def _ddi_get_download_status(self, 
+                                 request_id: str) -> dict:
+        """
+            Private method to get download status for the dataset downloading.
+
+            Parameters
+            ----------
+            request_id : str
+                Request ID obtained by _ddi_submit_download.
+
+            Returns
+            -------
+            dict
+                Status of the download.
+        """
+        url: str = self.session.API_PATH + "/transfer/status/" + request_id
+
+        status_solved: bool = False
+        is_error: bool = False
+        content: dict = {}
+        while not status_solved:
+            response: Response = req.get(url, headers=self.session.API_HEADER)
+            
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"GET -- {url} -- REQ_ID:{request_id}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
+        
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving download status. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving download status. See log file, please.")
+            return None
+        else:
+            return content      
+
+
+    def _ddi_download_dataset(self, 
+                              request_id: str, 
+                              destination_file: str, 
+                              progress_func: callable = None) -> None:
+        """
+            Private method providing download of the dataset.
+
+            Parameters
+            ----------
+            request_id : str
+                Request ID obtained by _ddi_submit_download.
+            destination_file: str
+                Destination path for the download.
+            progress_func : callable, optional
+                Function providing the progress of the download.
+
+            Returns
+            -------
+            None
+        """
+        url: str = self.session.API_PATH + "/transfer/download/" + request_id
+
+        status_solved: bool = False
+        is_error: bool = False
+        content: dict = {}
+        try:
+            while not status_solved:
+                response: Response = req.get(url,
+                                             headers=self.session.API_HEADER,
+                                             stream=True)
+                
+                content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                      f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD", 
+                                                                                      to_json=False,
+                                                                                      suppress_print=self.suppress_print)
             
             # File ready, start downloading
-            total_length = request.headers.get('content-length')
-            self.session.logging.debug(f"STARTING DOWNLOADING -- OK")
-            try:
-                with open(destination_file, "wb") as f:
-                    if total_length is None: # no content length header
-                        f.write(request.content)
-                    else:
-                        dl = 0
-                        total_length = int(total_length)
-                        current = 0
-                        chunk_size = 4096
-                        for data in request.iter_content(chunk_size=chunk_size):
-                            if progress_func:
-                                progress_func(current, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
-                                current += chunk_size
-                            dl += len(data)
-                            f.write(data)
+            total_length = response.headers.get("content-length")
+            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- STARTING DOWNLOAD -- OK")
+
+            with open(destination_file, "wb") as f:
+                if total_length is None: # no content length header
+                    f.write(content)
+                else:
+                    dl = 0
+                    total_length = int(total_length)
+                    current: int = int(0)
+                    chunk_size: int = int(4096)
+                    for data in response.iter_content(chunk_size=chunk_size):
                         if progress_func:
-                            progress_func(total_length, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
-                        
-            except IOError as ioe:
-                self.session.logging.error(f"DOWNLOAD -- FAILED")
-                raise Py4LexisException(str(ioe))
+                            progress_func(current, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
+                            current += chunk_size
+                        dl += len(data)
+                        f.write(data)
+                    if progress_func:
+                        progress_func(total_length, total_length, prefix='Progress: ', suffix='Downloaded', length=50)
+
+        except KeyError as kerr:
+            is_error = True
+            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
+
+        except IOError as ioe:
+            is_error = True
+            self.session.logging.error(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- FAILED")
+            self.session.logging.error(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- ERROR -- {ioe}")
         
-        self.session.logging.debug(f"DOWNLOAD -- OK")
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while downloading dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while downloading dataset. See log file, please.")
 
 
-
-    def download_dataset(self, acccess, project, internal_id, zone, path = "", destination_file = "./download.tar.gz"):
+    def download_dataset(self, 
+                         dataset_id: str,
+                         acccess: str, 
+                         project: str,                           
+                         zone: str,
+                         path: Optional[str]="",
+                         destination_file: Optional[str]="./download.tar.gz") -> None:
         """
-            Downloads dataset by a specified informtions as access, zone, project, Interna_Id.
+            Downloads dataset by a specified information as access, zone, project, InternalID.
             It is possible to specify by path parameter which exact file in the dataset should be downloaded.
             It is popsible to specify local desination folder. Default is set to = "./download.tar.gz"
             
             Parameters
             ----------
             access : str
-                One of the access types [public, project, user]
+                One of the access types [public, project, user]. Can be obtain by get_all_datasets() method.
             project: str
-                Project's short name.
-            internal_id: str
-                InternalID of the dataset
+                Project's short name in which dataset is stored. Can be obtain by get_all_datasets() method.
+            dataset_id: str
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
             zone: str
-                iRods zone name
+                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
             path: str, optional
-                Path to exact folde, by default  = ""
+                Path to exact folder, by default  = "".
             destination_file: str, optional
-                Paht to the local destination foler, by default "./download.tar.gz"
+                Path to the local destination folder, by default "./download.tar.gz".
 
-
-            Return
-            ------
+            Returns
+            -------
             None
         """
+        
+        if not self.suppress_print:
+            print("Submitting download request on server...")
 
-        down_request = self._ddi_submit_download(dataset_id=internal_id, 
-                            zone=zone, access=acccess, project=project, path=path)
+        down_request = self._ddi_submit_download(dataset_id=dataset_id, 
+                                                 zone=zone, 
+                                                 access=acccess,
+                                                 project=project, 
+                                                 path=path)
+        if not self.suppress_print:
+            print("Download submitted!")
 
         # Wait until it is ready
-        retries_max = 200
-        retries = 0
-        delay = 5 # secs
+        retries_max: int = 200
+        retries: int = 0
+        delay: int = 5 # secs
+        is_error: bool = False
+
+        if not self.suppress_print:
+            print("Checking the status of download request...")
+
         while retries < retries_max:
             status = self._ddi_get_download_status(request_id=down_request)
 
-            if status['task_state'] == 'SUCCESS':
+            if status["task_state"] == "SUCCESS":
+                if not self.suppress_print:
+                    print("Starting downloading the dataset...")
                 # Download file
-                self._ddi_download_dataset(request_id=down_request, destination_file=destination_file)
+                if not self.suppress_print:
+                    self._ddi_download_dataset(request_id=down_request, destination_file=destination_file, progress_func=printProgressBar)
+                else:
+                    self._ddi_download_dataset(request_id=down_request, destination_file=destination_file)
                 break
 
-            if status['task_state'] == 'ERROR' or status['task_state'] == "FAILURE":
-                self.session.logging.error('DOWNLOAD --  request failed: {0} -- FAILED'.format(status['task_result']))
-                raise Py4LexisException(status['task_result'])
+            if status["task_state"] == "ERROR" or status["task_state"] == "FAILURE":
+                is_error = True
+                self.session.logging.error(f"DOWNLOAD -- REQ_ID:{down_request} -- request failed: {status['task_result']} -- FAILED")
+                break
 
-            self.session.logging.debug(f"DOWNLOAD -- waiting for download to become ready -- remaining retries {retries} -- OK")    
+            self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- waiting for download to become ready -- remaining retries {retries}/{retries_max} -- OK")    
+            
+            if not self.suppress_print:
+                print(f"Download request not ready yet, {retries_max}/{retries} retries remaining")
 
             # Refresh
-            self.session.token_refresh()
+            self.session.refresh_token()
             retries = retries + 1
             time.sleep(delay)
+        
+        if retries == retries_max and not is_error:
+            is_error = True
+            self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED") 
+
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while downloading dataset. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while downloading dataset. See log file, please.")
+        else:
+            if not self.suppress_print:
+                print("Dataset successfully downloaded -- OK!")
+
+
+    def get_list_of_files_in_dataset(self, 
+                                     dataset_id: str, 
+                                     access: str,
+                                     project: str, 
+                                     zone: str, 
+                                     path: Optional[str]="",
+                                     content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame:
+        """
+            List all files within the dataset.
+
+            Parameters
+            ----------
+            dataset_id : str
+                InternalID of the dataset. Can be obtain by get_all_datasets() method.
+            access : str
+                Access of the dataset. One of ["user", "project", "public"]. Can be obtain by get_all_datasets() method.
+            project : str
+                Project's short name in which the dataset is stored. Can be obtain by get_all_datasets() method.
+            zone : str
+                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
+            path : str, optional
+                Path within the dataset. By default: path="".
+            print_dir_tree: bool, optional
+                If True, directory tree will be printed. By default: print_dir_tree=False.
+            content_as_pandas: bool, optional
+                Convert HTTP response content from JSON to pandas DataFrame. By default: content_as_pandas=False.
+
+            Returns
+            -------
+            list[dict] | DataFrame | None
+                Content of the HTTP request as JSON or as pandas DataFrame if 'content_as_pandas=True'. None if some errors have occured.
+            int | None
+                Status of the HTTP request. None if some errors have occured.
+        """
+
+        if not self.suppress_print:
+            print(f"Retrieving data of files in the dataset...")
+
+        url: str = self.session.API_PATH + "/dataset/listing"
+
+        post_body: dict = {
+            "internalID": dataset_id,
+            "access": access,
+            "project": project,
+            "path": path,
+            "recursive": True,
+            "zone": zone
+        }
+
+        self.session.logging.debug(f"POST -- {url} -- PROGRESS")
+        status_solved: bool = False
+        content: list[dict] | DataFrame | None = None
+        is_error: bool = True
+        while not status_solved:
+            response: Response = req.post(url,
+                                            headers=self.session.API_HEADER,
+                                            json=post_body)
+
+            content, status_solved, is_error = self.session.handle_request_status(response, 
+                                                                                  f"POST -- {url}", 
+                                                                                  to_json=True,
+                                                                                  suppress_print=self.suppress_print)
+
+            if not is_error and content_as_pandas:
+                content = convert_dir_tree_to_pandas(self.session, 
+                                                     content, 
+                                                     supress_print=self.suppress_print)
+
+                if content is None:
+                    is_error = True
+                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
+                else:
+                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
+
+        if is_error:
+            if not self.suppress_print:
+                print(f"Some errors occurred while retrieving list of files. See log file, please.")
+            if self.session.exception_on_error:
+                raise Py4LexisException(f"Some errors occurred while retrieving list of files. See log file, please.")
+            return None, None
+        else:
+            if not self.suppress_print:
+                print(f"List of files successfully retrieved (and converted)...")
+            if self.print_content:
+                print(f"{content}")
+            return content, response.status_code
         

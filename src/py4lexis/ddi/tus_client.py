@@ -2,15 +2,16 @@
 """
     TUS Client derived from tuspy tus client.
 """
-from py4lexis.ddi.uploader import Uploader
+from typing import Dict, Optional
+from py4lexis.ddi.uploader import Uploader, AsyncUploader
 
 
-class TusClient(object):
+class TusClient:
     """
     Object representation of Tus client.
 
     :Attributes:
-        - url (str):from tusclient.uploader import Uploader
+        - url (str):
             represents the tus server's create extension url. On instantiation this argument
             must be passed to the constructor.
         - headers (dict):
@@ -24,12 +25,11 @@ class TusClient(object):
         - headers (Optiional[dict])
     """
 
-    def __init__(self, url, headers=None):
+    def __init__(self, url: str, headers: Optional[Dict[str, str]] = None):
         self.url = url
         self.headers = headers or {}
 
-    # you can set authentication headers with this.
-    def set_headers(self, headers):
+    def set_headers(self, headers: Dict[str, str]):
         """
         Set tus client headers.
 
@@ -42,11 +42,11 @@ class TusClient(object):
         """
         self.headers.update(headers)
 
-    def uploader(self, *args, **kwargs):
+    def uploader(self, *args, **kwargs) -> Uploader:
         """
         Return uploader instance pointing at current client instance.
 
-        Return uplaoder instance with which you can control the upload of a specific
+        Return uploader instance with which you can control the upload of a specific
         file. The current instance of the tus client is passed to the uploader on creation.
 
         :Args:
@@ -54,3 +54,7 @@ class TusClient(object):
         """
         kwargs['client'] = self
         return Uploader(*args, **kwargs)
+
+    def async_uploader(self, *args, **kwargs) -> AsyncUploader:
+        kwargs['client'] = self
+        return AsyncUploader(*args, **kwargs)
