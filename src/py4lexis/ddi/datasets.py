@@ -223,13 +223,13 @@ class Datasets(object):
                          zone: Optional[str]="IT4ILexisZone", 
                          file_path: Optional[str]="./",
                          path: Optional[str]="", 
-                         contributor: Optional[list[str]]=["NONAME contributor"], 
-                         creator: Optional[list[str]]=["NONAME creator"],
-                         owner: Optional[list[str]]=["NONAME owner"], 
-                         publicationYear: Optional[str]=str(date.today().year), 
-                         publisher: Optional[list[str]]=["NONAME publisher"],
-                         resourceType: Optional[str]="NONAME resource type", 
-                         title: Optional[str]="UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"), 
+                         contributor: Optional[list[str]]=["UNKNOWN contributor"], 
+                         creator: Optional[list[str]]=["UNKNOWN creator"],
+                         owner: Optional[list[str]]=["UNKNOWN owner"], 
+                         publicationYear: Optional[list[str]]=[str(date.today().year)], 
+                         publisher: Optional[list[str]]=["UNKNOWN publisher"],
+                         resourceType: Optional[list[str]]=["NONAME resource type"], 
+                         title: Optional[list[str]]=["UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")], 
                          expand: Optional[str]="no", 
                          encryption: Optional[str]="no") -> None:
         """
@@ -255,14 +255,14 @@ class Datasets(object):
                 By default: ["UNKNOWN creator"].
             owner: list[str], optional
                 By default: ["UNKNOWN owner"].
-            publicationYear: str, optional
-                By default: CURRENT_YEAR.
+            publicationYear: list[str], optional
+                By default: [CURRENT_YEAR].
             publisher: list[str], optional
                 By default: ["UNKNOWN publisher"].
-            resourceType: str, optional
-                By default: "UNKNOWN resource type".
-            title: str, optional
-                By default: "UNTITLED_Dataset_" + TIMESTAMP.
+            resourceType: list[str], optional
+                By default: ["UNKNOWN resource type"].
+            title: list[str], optional
+                By default: ["UNTITLED_Dataset_" + TIMESTAMP].
             expand: str, optional
                 By default: "no".
             encryption: str, optional

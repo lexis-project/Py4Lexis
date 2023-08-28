@@ -15,7 +15,7 @@ ds = DatasetsCLI(session)
 #new_ds = ds.create_dataset("project", "demoproject", "empty")
 
 # Create new dataset and upload file into it
-# ds.tus_uploader_new("project", "demoproject", "test10M.dat")
+ds.tus_uploader_new("project", "demoproject", "test10M.dat", title=["TUS TEST 2808"])
 
 # Add new directory tree of files to existing dataset or rewrite existing files in such directory tree
 '''
@@ -28,10 +28,10 @@ ds.tus_uploader_rewrite(dataset_id="0e79c1f6-3757-11ee-885e-fa163e515f81",
 '''
 
 # Get status of files being uploaded to datasets
-# ds.get_dataset_status(filter_project="demoproject")
+ds.get_dataset_status(filter_project="demoproject")
 
 # List all datasets
-#dsets = ds.get_all_datasets(filter_access="project", filter_project="demoproject")
+# dsets = ds.get_all_datasets(filter_access="project", filter_project="demoproject")
 
 # Download Dataset
 # ds.download_dataset(dataset_id="0e79c1f6-3757-11ee-885e-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone")
