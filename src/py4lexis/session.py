@@ -2,25 +2,25 @@ from __future__ import annotations
 import logging
 from typing import Optional
 from requests import Response, get, ConnectionError
-from py4lexis.exceptions import Py4LexisException
+from py4lexis.exceptions import Py4LexisException, Py4LexisLogException
+from py4lexis.helper import Clr
+from getpass import getpass
+from py4lexis.kck_session import kck_oi
 import json
 try:
     import tomllib
 except ModuleNotFoundError:
     import tomli as tomllib
 
-from keycloak import KeycloakOpenID
-from keycloak.exceptions import KeycloakPostError
-
 
 class LexisSession(object):
 
     def __init__(self, 
-                 config_file: str, 
+                 config_file: str | None = None, 
                  exception_on_error: bool = False,
                  log_file: Optional[str]="./lexis_logs.log") -> None:
         """
-            A class holds an LEXIS API SESSION.
+            A class holds an LEXIS SESSION.
 
             Attributes
             ----------
@@ -34,13 +34,13 @@ class LexisSession(object):
             Methods
             -------
             get_token() -> str
-                Returns the user's keycloak token.
+                Returns the user's token.
 
             get_refresh_token() -> str
-                Returns the user's refresh keycloak token.
+                Returns the user's refresh token.
 
             refresh_token() -> bool
-                Refresh the user's keycloak tokens
+                Refresh the user's tokens
 
             handle_request_status(self, 
                                   response: Response, 
@@ -51,6 +51,8 @@ class LexisSession(object):
         """
         # Exception on error
         self.exception_on_error = exception_on_error
+        self.cfg = config_file
+        self.Clr = Clr()
 
         # Initialise logging
         self.log_path: str = log_file
@@ -60,72 +62,59 @@ class LexisSession(object):
                                  level=logging.DEBUG,
                                  format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 
-        # Prepare tokens and Keycloak session
-        self.keycloak_openid: KeycloakOpenID | None = None
+        # Prepare tokens
+        self.uc = kck_oi()
         self.REFRESH_TOKEN: str = ""
         self.TOKEN: str = ""
 
+        self.USERNAME: str = ""
+        self.DFLT_Z = self.Clr.get("Z")
+        self.API_PATH: str = self.Clr.get("PATH")
+
+        # check API if valid
+        response = get(self.API_PATH)
+        self.logging.debug(f"Initialise API path '{self.API_PATH}' -- OK")      
+        
         is_error: bool = False
         # Load config file and initialise LEXIS session
-        try:
-            with open(config_file, "rb") as _toml_file:
-                _cfg = tomllib.load(_toml_file)
+        if config_file is not None:
+            try:
+                with open(config_file, "rb") as _toml_file:
+                    _cfg = tomllib.load(_toml_file)
 
-            self.username: str = str(_cfg["config"]["USERNAME"])
-            self._set_tokens(str(_cfg["config"]["PWD"]),
-                             str(_cfg["config"]["CLIENT_ID"]),
-                             str(_cfg["config"]["CLIENT_SECRET"]),
-                             str(_cfg["config"]["REALM"]),
-                             str(_cfg["config"]["KEYCLOAK_URL"]))
+                self.USERNAME: str = str(_cfg["config"]["USERNAME"])
+                self._set_tokens(str(_cfg["config"]["PWD"]))
 
-            self.ZONENAME: str = str(_cfg["config"]["ZONENAME"])
+                self.logging.debug(f"Reading {config_file} -- OK")                
 
-            _ddi_endpoint_url: str = str(_cfg["config"]["DDI_ENDPOINT_URL"])
-            if _ddi_endpoint_url[-1] == "/":
-                _ddi_endpoint_url = _ddi_endpoint_url[:-1]
+            except FileNotFoundError:
+                is_error = True
+                self.logging.error(f"Reading '{config_file}'-- FAILED")
+            
+            except ConnectionError:
+                is_error = True
+                self.logging.error(f"Initialise '{self.API_PATH}' -- FAILED")            
+        else:            
+            self._set_tokens()
 
-            # create api url path
-            self.DDI_ENDPOINT_URL = _ddi_endpoint_url
-            self.API_PATH = self.DDI_ENDPOINT_URL + "/api/v0.2"
-            self.logging.debug(f"Reading {config_file} -- OK")
-
-            # check url if valid
-            response = get(self.API_PATH)
-            self.logging.debug(f"Initialise '{self.API_PATH}' -- OK")
-
-            # Prepare requests header
-            if self.TOKEN is not None:
-                self.API_HEADER = {'Authorization': 'Bearer ' + self.TOKEN,
-                                'Content-type': 'application/json'}
-                self.logging.debug(f"Set api_header -- OK")
-
-            else:
-                self.logging.debug(f"Set api_header -- FAILED")
-                is_error = False
-
-        except FileNotFoundError:
-            is_error = True
-            self.logging.error(f"Reading '{config_file}' -- FAILED")
-        
-        except ConnectionError:
-            is_error = True
-            self.logging.error(f"Initialise '{self.API_PATH}' -- FAILED")
+        # Prepare requests header
+        if self.TOKEN is not None:
+            self.API_HEADER = {"Authorization": "Bearer " + self.TOKEN,
+                               "Content-type": "application/json"}
+            self.logging.debug(f"Set api_header -- OK")
+        else:
+            self.logging.debug(f"Set api_header -- FAILED")
+            is_error = False
 
         if is_error:
-            if self.exception_on_error:
-                raise Py4LexisException(f"Some errors occurred. See log file, please.")
-            else:
-                print(f"Some errors occurred. See log file, please.")
+                if self.exception_on_error:
+                    raise Py4LexisException(f"Some errors occurred. See log file, please.")
+                else:
+                    print(f"Some errors occurred. See log file, please.")
 
-
-    def _set_tokens(self, 
-                    pwd: str, 
-                    client_id: str, 
-                    client_secret: str, 
-                    realm: str, 
-                    keycloak_url: str) -> None:
+    def _set_tokens(self, pwd: str = "") -> None:
         """
-            Set user's access and refresh tokens from keycloak based on defined username + password.
+            Set user's access and refresh tokens based on defined username + password.
 
             Returns
             -------
@@ -133,36 +122,39 @@ class LexisSession(object):
         """
         is_error: bool = False
         try:
-            self.keycloak_openid = KeycloakOpenID(server_url=keycloak_url + "/auth/",
-                                                  realm_name=realm,
-                                                  client_id=client_id,
-                                                  client_secret_key=client_secret)
+            if self.cfg is not None:
+                token: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
+            else:
+                print(f"Welcome to the Py4Lexis!")
+                print(f"Please provide your credentials...")
+                self.USERNAME: str = input("Username: ")
+                pwd: str = getpass()
+                token: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
 
-            # Get WellKnow
-            config_well_known = self.keycloak_openid.well_known()
-
-            # Get tokens
-            token: dict | dict[str, str] = self.keycloak_openid.token(self.username, pwd, scope=["openid"])
             self.REFRESH_TOKEN = token["refresh_token"]
             self.TOKEN = token["access_token"]
-            self.logging.debug(f"POST -- KEYCLOACK -- TOKEN -- OK")
+            self.logging.debug(f"POST -- AUTH -- TOKEN -- OK")
+            
         
-        except KeycloakPostError as err:
+        except Py4LexisLogException as err:
             is_error = True
-            self.logging.error(f"POST -- KEYCLOACK -- TOKEN -- FAILED")
-            self.logging.error(f"POST -- KEYCLOACK -- TOKEN -- STATUS -- {err.response_code} -- FAILED")
-            self.logging.error(f"POST -- KEYCLOACK -- TOKEN -- MESSAGE -- {err.error_message} -- FAILED")
+            self.logging.error(f"POST -- AUTH -- TOKEN -- FAILED")
+            self.logging.error(f"POST -- AUTH -- TOKEN -- STATUS -- {err.response_code} -- FAILED")
+            self.logging.error(f"POST -- AUTH -- TOKEN -- MESSAGE -- {err.error_message} -- FAILED")
 
         except KeyError as kerr:
             is_error = True
-            self.logging.error(f"POST -- KEYCLOACK -- TOKEN -- FAILED")
-            self.logging.error(f"POST -- KEYCLOACK -- TOKEN -- Missing key '{kerr}' -- FAILED")
+            self.logging.error(f"POST -- AUTH -- TOKEN -- FAILED")
+            self.logging.error(f"POST -- AUTH -- TOKEN -- Missing key '{kerr}' -- FAILED")
 
         if is_error:
             if self.exception_on_error:
                 raise Py4LexisException(f"Some errors occurred. See log file, please.")
             else:
                 print(f"Some errors occurred. See log file, please.")
+        else:
+            if self.cfg is None:
+                print(f"You have been successfully logged in LEXIS session.")
 
 
     def get_token(self) -> str:
@@ -170,7 +162,7 @@ class LexisSession(object):
             Returns
             -------
             str
-                User's keycloak access token.
+                User's access token.
         """
         return self.TOKEN
 
@@ -179,13 +171,13 @@ class LexisSession(object):
             Returns
             -------
             str
-                User's keycloak refresh token.
+                User's refresh token.
         """
         return self.REFRESH_TOKEN
 
     def refresh_token(self) -> bool:
         """
-            Refresh user's token from keycloak.
+            Refresh user's token.
 
             Returns
             -------
@@ -195,23 +187,23 @@ class LexisSession(object):
         is_error: bool = False
         try:
             tokens: dict = {}
-            self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- PROGRESS")
-            tokens = self.keycloak_openid.refresh_token(self.get_refresh_token())                      
+            self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- PROGRESS")
+            tokens = self.uc.rfsh_token(self.get_refresh_token())                      
             self.TOKEN = tokens["access_token"]
             self.REFRESH_TOKEN = tokens["refresh_token"]
             self.API_HEADER = {"Authorization": "Bearer " + self.TOKEN}
-            self.logging.debug(f"POST -- KEYCLOACK -- REFRESH TOKEN -- OK")
+            self.logging.debug(f"POST -- AUTH -- REFRESH TOKEN -- OK")
 
-        except KeycloakPostError as err:
+        except Py4LexisLogException as err:
             is_error = True
-            self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- Probably refresh token is not valid anymore -- FAILED")
-            self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- STATUS -- {err.response_code} -- FAILED")
-            self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- MESSAGE -- {err.error_message} -- FAILED")
+            self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- Probably refresh token is not valid anymore -- FAILED")
+            self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- STATUS -- {err.response_code} -- FAILED")
+            self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- MESSAGE -- {err.error_message} -- FAILED")
 
         except KeyError as kerr:
             is_error = True
-            self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- FAILED")
-            self.logging.error(f"POST -- KEYCLOACK -- REFRESH TOKEN -- Missing key '{kerr}' -- FAILED")
+            self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- FAILED")
+            self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- Missing key '{kerr}' -- FAILED")
 
         if is_error:
             if self.exception_on_error:

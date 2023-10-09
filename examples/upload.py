@@ -5,17 +5,21 @@ from py4lexis.cli.datasets import DatasetsCLI
     Example file how to use Py4Lexis via CLI
 """
 
-# Init session with config file
-session = LexisSession(config_file="config.toml")
+# Init session with username/password as user input
+session = LexisSession()
+
+# Init session with username/password in config file
+# session = LexisSession(config_file="config.toml")
+
 
 # Get Datasets manager
 ds = DatasetsCLI(session)
 
 # Create new dataset
-#new_ds = ds.create_dataset("project", "demoproject", "empty")
+# new_ds = ds.create_dataset("project", "demoproject", "empty")
 
 # Create new dataset and upload file into it
-ds.tus_uploader_new("project", "demoproject", "test10M.dat", title=["TUS TEST 2808"])
+# ds.tus_uploader_new("project", "demoproject", "test10M.dat", title=["TUS TEST 1509"])
 
 # Add new directory tree of files to existing dataset or rewrite existing files in such directory tree
 '''
@@ -27,8 +31,26 @@ ds.tus_uploader_rewrite(dataset_id="0e79c1f6-3757-11ee-885e-fa163e515f81",
                         zone="IT4ILexisZone")
 '''
 
+'''
+ds.tus_uploader_rewrite(dataset_id="c7b4a0f6-539e-11ee-ba21-fa163e515f81",
+                        dataset_title="TUS TEST 1509",
+                        project="demoproject", 
+                        access="project",
+                        filename="test10M.dat",
+                        zone="IT4ILexisZone")
+'''
+
+'''
+ds.tus_uploader_rewrite(dataset_id="c7b4a0f6-539e-11ee-ba21-fa163e515f81",
+                        dataset_title="TUS TEST 1509",
+                        project="demoproject", 
+                        access="project",
+                        filename="test_text2.txt",
+                        zone="IT4ILexisZone")
+'''
+
 # Get status of files being uploaded to datasets
-ds.get_dataset_status(filter_project="demoproject")
+# ds.get_dataset_status(filter_project="demoproject")
 
 # List all datasets
 # dsets = ds.get_all_datasets(filter_access="project", filter_project="demoproject")
@@ -38,7 +60,7 @@ ds.get_dataset_status(filter_project="demoproject")
 
 # List all files in dataset as ASCII directory tree
 # ds.get_list_of_files_in_dataset(dataset_id="0e79c1f6-3757-11ee-885e-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone", print_dir_tree=True)
+
 # List all files in dataset as DataFrame table
 # ds.get_list_of_files_in_dataset(dataset_id="0e79c1f6-3757-11ee-885e-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone", print_dir_tree=False)
-
-
+#ds.get_list_of_files_in_dataset(dataset_id="c7b4a0f6-539e-11ee-ba21-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone", print_dir_tree=False)
