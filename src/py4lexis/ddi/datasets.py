@@ -440,7 +440,7 @@ class Datasets(object):
 
         while not status_solved:
             response: Response = req.get(url,
-                                            headers={"Authorization": "Bearer " + self.session.TOKEN})
+                                         headers={"Authorization": "Bearer " + self.session.TOKEN})
             
             content, status_solved, is_error = self.session.handle_request_status(response, 
                                                                                   f"GET -- {url}", 
@@ -454,7 +454,7 @@ class Datasets(object):
 
             if content is None:
                 is_error = True
-                self.session.logging.debug(f"GET -- {url} -- CONVERT TO DATAFRAME -- FAILED")
+                self.session.logging.error(f"GET -- {url} -- CONVERT TO DATAFRAME -- FAILED")
             else:
                 self.session.logging.debug(f"GET -- {url} -- CONVERT TO DATAFRAME -- OK")    
                 
@@ -466,7 +466,7 @@ class Datasets(object):
             return None, None
         else:
             if not self.suppress_print:
-                    print("Upload status of datasets successfully retrived (and converted) -- OK") 
+                    print("Upload status of datasets successfully retrieved (and converted) -- OK") 
             if self.print_content:
                 print(f"content: {content}")
             return content, response.status_code
@@ -516,7 +516,7 @@ class Datasets(object):
 
             if content is None:
                 is_error = True
-                self.session.logging.debug(f"POST -- {url} -- CONVERT TO DATAFRAME -- FAILED")
+                self.session.logging.error(f"POST -- {url} -- CONVERT TO DATAFRAME -- FAILED")
                 
             else:
                 self.session.logging.debug(f"POST -- {url} -- CONVERT TO DATAFRAME -- OK")
@@ -649,7 +649,7 @@ class Datasets(object):
 
         except KeyError as kerr:
             is_error = True
-            self.session.logging.debug(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
+            self.session.logging.error(f"POST -- {url} -- DATA_ID:{dataset_id} -- Wrong or missing key '{kerr}' in response -- FAILED")
         
         if is_error:
             if not self.suppress_print:
@@ -758,7 +758,7 @@ class Datasets(object):
 
         except KeyError as kerr:
             is_error = True
-            self.session.logging.debug(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
+            self.session.logging.error(f"GET -- {url} -- REQ_ID:{request_id} -- DOWNLOAD -- Wrong or missing key '{kerr}' in response -- FAILED")
 
         except IOError as ioe:
             is_error = True
@@ -856,7 +856,7 @@ class Datasets(object):
         
         if retries == retries_max and not is_error:
             is_error = True
-            self.session.logging.debug(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED") 
+            self.session.logging.error(f"DOWNLOAD -- REQ_ID:{down_request} -- Reached maximum retries: {retries}/{retries_max} -- FAILED") 
 
         if is_error:
             if not self.suppress_print:
@@ -940,7 +940,7 @@ class Datasets(object):
 
                 if content is None:
                     is_error = True
-                    self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- FAILED")
+                    self.session.logging.error(f"POST -- {url} -- DATAFRAME -- FAILED")
                 else:
                     self.session.logging.debug(f"POST -- {url} -- DATAFRAME -- OK")
 
