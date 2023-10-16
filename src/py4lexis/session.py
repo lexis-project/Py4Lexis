@@ -2,15 +2,21 @@ from __future__ import annotations
 import logging
 from typing import Optional
 from requests import Response, get, ConnectionError
-from py4lexis.exceptions import Py4LexisException, Py4LexisLogException
-from py4lexis.helper import Clr
+from py4lexis.exceptions import Py4LexisAuthException, Py4LexisException, Py4LexisPostException
 from getpass import getpass
 from py4lexis.kck_session import kck_oi
+from py4lexis.helper import Clr, sfouiro, _itbbra
+from requests import get
+from urllib3 import disable_warnings
+from time import perf_counter
 import json
 try:
     import tomllib
 except ModuleNotFoundError:
     import tomli as tomllib
+
+
+disable_warnings()
 
 
 class LexisSession(object):
@@ -66,10 +72,14 @@ class LexisSession(object):
         self.uc = kck_oi()
         self.REFRESH_TOKEN: str = ""
         self.TOKEN: str = ""
+        self._token_retrieved_at = 0
+        self._token_expiration = 0
+        self._refresh_expiration = 0
 
         self.USERNAME: str = ""
         self.DFLT_Z = self.Clr.get("Z")
-        self.API_PATH: str = self.Clr.get("PATH")
+        self.API_AIR: str = self.Clr.get("AIR")
+        self.API_PATH: str = self.Clr.get("API")
 
         # check API if valid
         response = get(self.API_PATH)
@@ -99,11 +109,13 @@ class LexisSession(object):
 
         # Prepare requests header
         if self.TOKEN is not None:
-            self.API_HEADER = {"Authorization": "Bearer " + self.TOKEN,
-                               "Content-type": "application/json"}
+            self.API_HEADER = {
+                "Authorization": "Bearer " + self.TOKEN,
+                "Content-type": "application/json"
+            }
             self.logging.debug(f"Set api_header -- OK")
         else:
-            self.logging.debug(f"Set api_header -- FAILED")
+            self.logging.error(f"Set api_header -- FAILED")
             is_error = False
 
         if is_error:
@@ -133,10 +145,19 @@ class LexisSession(object):
 
             self.REFRESH_TOKEN = token["refresh_token"]
             self.TOKEN = token["access_token"]
+            self._token_expiration = token["expires_in"]
+            self._refresh_expiration = token["refresh_expires_in"]
+            self._token_retrieved_at = perf_counter()
             self.logging.debug(f"POST -- AUTH -- TOKEN -- OK")
-            
+
+        except Py4LexisAuthException:
+            is_error = True
+            if not self.cfg:
+                print(f"Invalid user credentials! Cannot be logged in!")
+            else:
+                self.logging.error("AUTH -- INVALID USER CREDENTIALS -- FAILED")    
         
-        except Py4LexisLogException as err:
+        except Py4LexisPostException as err:
             is_error = True
             self.logging.error(f"POST -- AUTH -- TOKEN -- FAILED")
             self.logging.error(f"POST -- AUTH -- TOKEN -- STATUS -- {err.response_code} -- FAILED")
@@ -174,6 +195,19 @@ class LexisSession(object):
                 User's refresh token.
         """
         return self.REFRESH_TOKEN
+    
+    def check_token(self):
+        now: float = perf_counter()
+        elapsed: float = now - self._token_retrieved_at
+
+        if elapsed >= self._token_expiration and elapsed < self._refresh_expiration:
+            self.refresh_token()
+        else:
+            if self.exception_on_error:
+                raise Py4LexisException("Token has expired and can't be refreshed. Please, relog the session.")
+            
+            if self.cfg is None:
+                print(f"Token has expired and can't be refreshed. Please, relog the session.")
 
     def refresh_token(self) -> bool:
         """
@@ -187,14 +221,15 @@ class LexisSession(object):
         is_error: bool = False
         try:
             tokens: dict = {}
-            self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- PROGRESS")
+            self.logging.debug(f"POST -- AUTH -- REFRESH TOKEN -- PROGRESS")
             tokens = self.uc.rfsh_token(self.get_refresh_token())                      
             self.TOKEN = tokens["access_token"]
             self.REFRESH_TOKEN = tokens["refresh_token"]
+            self._token_retrieved_at = perf_counter()
             self.API_HEADER = {"Authorization": "Bearer " + self.TOKEN}
             self.logging.debug(f"POST -- AUTH -- REFRESH TOKEN -- OK")
 
-        except Py4LexisLogException as err:
+        except Py4LexisPostException as err:
             is_error = True
             self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- Probably refresh token is not valid anymore -- FAILED")
             self.logging.error(f"POST -- AUTH -- REFRESH TOKEN -- STATUS -- {err.response_code} -- FAILED")
@@ -255,7 +290,7 @@ class LexisSession(object):
 
                 self.logging.debug(log_msg + " -- OK")
             else:
-                if response.status_code == 404:
+                if response.status_code == 404 or response.status_code >= 500:
                     is_error = True
                     status_solved = True
                     content = response.content
@@ -263,7 +298,7 @@ class LexisSession(object):
                     content = response.json()
                     if "errorString" in content.keys():
                         if content["errorString"] == "Inactive token":
-                            self.logging.debug(log_msg + " -- TOKEN -- FAILED")
+                            self.logging.error(log_msg + " -- TOKEN -- FAILED")
                             is_refreshed: bool = self.refresh_token()
                             if is_refreshed:
                                 status_solved = False
@@ -272,13 +307,13 @@ class LexisSession(object):
                             else:
                                 status_solved = True
                                 is_error = True
-                                self.logging.debug(log_msg + " -- REFRESH TOKEN -- FAILED")
+                                self.logging.error(log_msg + " -- REFRESH TOKEN -- FAILED")
                                 if not suppress_print:
                                     print(log_msg + " -- REFRESH TOKEN -- FAILED")
                         else:
                             status_solved = True
                             is_error = True
-                            self.logging.debug(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED")
+                            self.logging.error(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED")
                             self.logging.debug(content)
 
                             if not suppress_print:
@@ -286,7 +321,7 @@ class LexisSession(object):
                     else:
                         status_solved = True
                         is_error = True
-                        self.logging.debug(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED")
+                        self.logging.error(log_msg + f" -- Bad request status: '{response.status_code}' -- FAILED")
                         self.logging.debug(content)
 
                         if not suppress_print:
@@ -294,9 +329,85 @@ class LexisSession(object):
         
         except json.decoder.JSONDecodeError:
             is_error = True
-            self.logging.debug(log_msg + f" -- JSON response can't be decoded -- FAILED")
+            self.logging.error(log_msg + f" -- JSON response can't be decoded -- FAILED")
 
             if not suppress_print:
                 print(log_msg + f" -- JSON response can't be decoded -- FAILED")
         
         return content, status_solved, is_error
+
+
+class iRODSSession(LexisSession):
+    """
+        Class that holds the iRODS Lexis Session.
+
+        TODO: STILL UNDER DEVELOPMENT
+    """
+    
+    def __init__(self, config_file: str | None = None, exception_on_error: bool = False, log_file: str | None = "./lexis_logs.log") -> None:
+        super().__init__(config_file, exception_on_error, log_file)
+    
+        self.irods = self.get_session()
+
+    
+    def validate_irods(self):
+        """
+            Validate token on all iRODS broker.
+        """
+        try:
+            status_solved: bool = False
+            content: list[dict] | None = None
+            is_error: bool = True
+            while not status_solved:          
+                response: Response = get(self.Clr.yhbrr(sfouiro) + "/validate_token",
+                                        params={
+                                            "provider": self.Clr.yhbrr(_itbbra),
+                                            "access_token": "Bearer " + self.TOKEN
+                                        }, verify=False)
+                
+                content, status_solved, is_error = self.handle_request_status(response, 
+                                                                              f"GET -- {self.Clr.yhbrr(sfouiro)}", 
+                                                                              to_json=False,
+                                                                              suppress_print=True if self.cfg is not None else False)
+                
+                if is_error:
+                    if self.cfg is None:
+                        print(f"Some errors occurred while validating token on iRODS. See log file, please.")
+                    
+                    if self.exception_on_error:
+                        raise Py4LexisException(f"Some errors occurred while validating token on iRODS. See log file, please.")
+                    else:
+                        return is_error
+                else:
+                    if self.cfg is None:
+                        print(f"Validate token on iRODS was successfull...")
+                    else:
+                        self.logging.debug("GET -- VALIDATE IRODS -- OK")
+
+                    return is_error
+            
+        except Exception as ke:
+            self.logging.error("GET -- VALIDATE IRODS -- Error when connecting to Keycloak: {0}".format(ke))
+            raise Py4LexisException
+
+
+    def get_session(self):
+        """
+            Retrieve iRODS session.
+        """
+
+        is_error = self.validate_irods()
+        if not is_error and is_error is not None:
+            session = self.uc.get_irods_session(self.USERNAME, self.TOKEN)
+
+            if self.cfg is None:
+                print(f"The iRODS session was successfully initialised.")
+            else:
+                self.logging.debug("iRODS -- INITIALISED -- OK")
+
+            return session
+        else:
+            if self.cfg is None:
+                print(f"Some problems occurred while initialising iRODS session. Please, see log file.")
+            else:
+                self.logging.error("iRODS -- INITIALISED -- FAILED")       

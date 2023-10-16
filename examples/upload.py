@@ -1,19 +1,22 @@
 from py4lexis.session import LexisSession
 from py4lexis.cli.datasets import DatasetsCLI
+from py4lexis.workflows.airflow import Airflow
 
 """
     Example file how to use Py4Lexis via CLI
 """
 
 # Init session with username/password as user input
-session = LexisSession()
+# session = LexisSession()
 
 # Init session with username/password in config file
-# session = LexisSession(config_file="config.toml")
+session = LexisSession(config_file="config.toml")
 
-
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Manage LEXIS datasets
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Get Datasets manager
-ds = DatasetsCLI(session)
+# ds = DatasetsCLI(session)
 
 # Create new dataset
 # new_ds = ds.create_dataset("project", "demoproject", "empty")
@@ -64,3 +67,34 @@ ds.tus_uploader_rewrite(dataset_id="c7b4a0f6-539e-11ee-ba21-fa163e515f81",
 # List all files in dataset as DataFrame table
 # ds.get_list_of_files_in_dataset(dataset_id="0e79c1f6-3757-11ee-885e-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone", print_dir_tree=False)
 #ds.get_list_of_files_in_dataset(dataset_id="c7b4a0f6-539e-11ee-ba21-fa163e515f81", access="project", project="demoproject", zone="IT4ILexisZone", print_dir_tree=False)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Manage Airflow Workflows
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# Init Airflow Manager
+airflow = Airflow(session)
+
+# Get list of All Existing Workflows
+wrfs, _ = airflow.get_workflows_list()
+print(f"Workflows:\n{wrfs}\n\n\n")
+
+# Get info about existing Workflow
+wrf_info, _ = airflow.get_workflow_info("compbiomed_dynamic_select_v2")
+print(f"Info:\n{wrf_info}\n\n\n")
+
+# Get details of existing workflow
+wrf_detail, _ = airflow.get_workflow_details("compbiomed_dynamic_select_v2")
+print(f"Detail:\n{wrf_detail}\n\n\n")
+
+# Get Workflow Params
+wrf_params, _ = airflow.get_workflow_params("compbiomed_dynamic_select_v2")
+print(f"Params:\n{wrf_params}\n\n\n")
+
+# Execute Workflow
+post_response, _ = airflow.execute_workflow("compbiomed_dynamic_select_v2", wrf_params)
+print(f"Response:\n{post_response}\n\n\n")
+
+# Get Workflows' state
+wrf_states, _ = airflow.get_workflow_states("compbiomed_dynamic_select_v2")
+print(f"States:\n{wrf_states}\n\n\n")

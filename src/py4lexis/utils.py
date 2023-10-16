@@ -360,3 +360,60 @@ def convert_dir_tree_to_pandas(session: LexisSession,
         return None
     else:
         return datasets_table  
+    
+
+def convert_list_of_objects_to_pandas(session: LexisSession, 
+                                      content: list[dict] | dict,                                      
+                                      supress_print: Optional[bool]=False) -> DataFrame | None:
+    """
+        Convert from list of objects to pandas DataFrame.
+        
+        Parameters
+        ----------
+        session : LexisSession
+            Current Lexis Session.
+        content : list[str]
+            HTTP response content.
+        suppress_print : bool, optional
+            If True all prints are suppressed.
+
+        Return
+        ------
+        DataFrame | None
+            List of files in dataset formated into DataFrame table. None is returned when some errors have occured.
+    """
+
+    if len(content) > 0:
+        cols: list[str] = content[0].keys()
+
+        datasets_table: DataFrame = DataFrame(columns=cols)
+
+        is_error: bool = False
+        try:
+            session.logging.debug(f"Converting HTTP content from JSON to pandas Dataframe -- PROGRESS")
+
+            if not supress_print:
+                print(f"Converting HTTP content from JSON to pandas Dataframe...")
+            
+            for i, item in enumerate(content):
+
+                for col in cols:
+                    datasets_table.at[i, col] = item[col]
+            
+        except:
+            is_error = True
+            session.logging.error(f"Unexpected error while converting directory tree from content to pandas DataFrame.")
+            
+            if not supress_print:
+                print(f"Unexpected error while converting directory tree from content to pandas DataFrame.")
+    else:
+        is_error = True
+        session.logging.error(f"Empty list has been passed to the pandas convertor.")
+            
+        if not supress_print:
+            print(f"Empty list has been passed to the pandas convertor.")
+
+    if is_error:
+        return None
+    else:
+        return datasets_table    
