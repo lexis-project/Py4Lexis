@@ -6,6 +6,7 @@ from py4lexis.directory_tree import DirectoryTree
 from py4lexis.session import LexisSession
 from pandas import DataFrame
 
+
 def printProgressBar(iteration: int, 
                      total: int, 
                      prefix: Optional[str]="", 
@@ -52,8 +53,8 @@ def printProgressBar(iteration: int,
 
 
 def convert_get_datasets_status_to_pandas(session: LexisSession, 
-                                                     content: list[dict], 
-                                                     supress_print: Optional[bool]=False) -> DataFrame | None:
+                                          content: list[dict], 
+                                          supress_print: Optional[bool]=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET datasets status from JSON format to pandas DataFrame.
         
@@ -142,8 +143,8 @@ def convert_get_datasets_status_to_pandas(session: LexisSession,
  
 
 def convert_get_all_datasets_to_pandas(session: LexisSession, 
-                                                  content: list[dict],
-                                                  supress_print: Optional[bool]=False) -> DataFrame | None:
+                                       content: list[dict],
+                                       supress_print: Optional[bool]=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET all datasets from JSON format to pandas DataFrame.
         
@@ -304,11 +305,11 @@ def convert_get_all_datasets_to_pandas(session: LexisSession,
         return None
     else:
         return datasets_table
-    
-    
+      
+
 def convert_dir_tree_to_pandas(session: LexisSession, 
-                                       content: list[dict],
-                                       supress_print: Optional[bool]=False) -> DataFrame | None:
+                               content: list[dict],
+                               supress_print: Optional[bool]=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET list of files in dataset from JSON format to pandas DataFrame.
         

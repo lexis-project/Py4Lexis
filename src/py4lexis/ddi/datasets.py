@@ -15,6 +15,7 @@ from py4lexis.ddi.uploader import Uploader
 import json
 import time
 
+
 class Datasets(object):
     def __init__(self,
                  session: LexisSession,
@@ -70,11 +71,12 @@ class Datasets(object):
                                  access: str, 
                                  project: str, 
                                  filename: str, 
-                                 zone: str="IT4ILexisZone", 
+                                 zone: Optional[str]="IT4ILexisZone", 
                                  file_path: Optional[str]="./",
                                  path: Optional[str]="",                               
                                  encryption: Optional[str]="no") -> None:
                 Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
+                An archive .tar.gz could be uploaded or the "pure" files.
 
             get_dataset_status(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame, int] | tuple[None, None]:
                 Prints a table of the datasets' staging states.
@@ -90,7 +92,7 @@ class Datasets(object):
             download_dataset(acccess: str, 
                              project: str, 
                              dataset_id: str, 
-                             zone: str,
+                             zone: Optional[str]="IT4ILexisZone",
                              path: Optional[str]="",
                              destination_file: Optional[str]="./download.tar.gz") -> None
                 Downloads dataset by a specified informtions as access, zone, project, Interna_Id.
@@ -100,7 +102,7 @@ class Datasets(object):
             get_list_of_files_in_dataset(dataset_id: str, 
                                          access: str,
                                          project: str, 
-                                         zone: str, 
+                                         zone: Optional[str]="IT4ILexisZone", 
                                          path: Optional[str]="",
                                          content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame
                 List all files within the dataset.
@@ -114,7 +116,7 @@ class Datasets(object):
                        access: str, 
                        project: str, 
                        push_method: Optional[str]="empty", 
-                       zone: Optional[str]="IT4ILexisZone",
+                       zone: Optional[str]="",
                        path: Optional[str]="", 
                        contributor: Optional[list[str]]=["UNKNOWN contributor"], 
                        creator: Optional[list[str]]=["UNKNOWN creator"],
@@ -160,6 +162,9 @@ class Datasets(object):
             int | None
                 Status of the HTTP request. None is returned if some errors have occured.
         """
+        if zone == "":
+            zone = self.session.DFLT_Z
+
         url: str = self.session.API_PATH + "/dataset"
         post_body: dict = {
             "push_method": push_method,
@@ -220,7 +225,7 @@ class Datasets(object):
                          access: str, 
                          project: str, 
                          filename: str, 
-                         zone: Optional[str]="IT4ILexisZone", 
+                         zone: Optional[str]="", 
                          file_path: Optional[str]="./",
                          path: Optional[str]="", 
                          contributor: Optional[list[str]]=["UNKNOWN contributor"], 
@@ -272,12 +277,15 @@ class Datasets(object):
             -------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z
+
         file_path = file_path + filename
         metadata: dict = {
             "path": path,
             "zone": zone,
             "filename": filename,
-            "user": self.session.username,
+            "user": self.session.USERNAME,
             "project": project,
             "access": access,
             "expand": expand,
@@ -302,12 +310,13 @@ class Datasets(object):
                              access: str, 
                              project: str, 
                              filename: str, 
-                             zone: str="IT4ILexisZone", 
+                             zone: Optional[str]="IT4ILexisZone", 
                              file_path: Optional[str]="./",
                              path: Optional[str]="",                               
                              encryption: Optional[str]="no") -> None:
         """
             Uploads a file or whole directory tree to existing dataset. If files already exist, it will rewrite them.
+            An archive .tar.gz could be uploaded or the "pure" files.
 
             Parameters
             ----------
@@ -334,7 +343,15 @@ class Datasets(object):
             -------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z
+
         file_path = file_path + filename
+
+        expand: str = "no"
+        if ".tag.gz" in file_path:
+            expand = "yes"
+
         metadata: dict = {
             "filename": filename,
             "project": project,
@@ -344,7 +361,7 @@ class Datasets(object):
                 "title": dataset_title
             }),
             "encryption": encryption,
-            "expand": "yes",
+            "expand": expand,
             "path": path,
             "dataset_id": dataset_id
         }
@@ -759,7 +776,7 @@ class Datasets(object):
                          dataset_id: str,
                          acccess: str, 
                          project: str,                           
-                         zone: str,
+                         zone: Optional[str]="",
                          path: Optional[str]="",
                          destination_file: Optional[str]="./download.tar.gz") -> None:
         """
@@ -786,6 +803,8 @@ class Datasets(object):
             -------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z
         
         if not self.suppress_print:
             print("Submitting download request on server...")
@@ -853,7 +872,7 @@ class Datasets(object):
                                      dataset_id: str, 
                                      access: str,
                                      project: str, 
-                                     zone: str, 
+                                     zone: Optional[str]="", 
                                      path: Optional[str]="",
                                      content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame:
         """
@@ -883,6 +902,8 @@ class Datasets(object):
             int | None
                 Status of the HTTP request. None if some errors have occured.
         """
+        if zone == "":
+            zone = self.session.DFLT_Z
 
         if not self.suppress_print:
             print(f"Retrieving data of files in the dataset...")
@@ -935,4 +956,3 @@ class Datasets(object):
             if self.print_content:
                 print(f"{content}")
             return content, response.status_code
-        

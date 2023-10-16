@@ -63,7 +63,7 @@ class DatasetsCLI(object):
                                  access: str, 
                                  project: str, 
                                  filename: str, 
-                                 zone: str="IT4ILexisZone", 
+                                 zone: Optional[str]="IT4ILexisZone", 
                                  file_path: Optional[str]="./",
                                  path: Optional[str]="",                               
                                  encryption: Optional[str]="no") -> None:
@@ -90,7 +90,7 @@ class DatasetsCLI(object):
             download_dataset(acccess: str,
                              project: str,
                              dataset_id: str,
-                             zone:str,
+                             Optional[str]="IT4ILexisZone",
                              path: Optional[str] = "",
                              destination_file: Optional[str] = "./download.tar.gz") -> None
                 Downloads dataset by a specified informtions as access, zone, project, InternalID.
@@ -100,7 +100,7 @@ class DatasetsCLI(object):
             get_list_of_files_in_dataset(dataset_id: str, 
                                          access: str,
                                          project: str, 
-                                         zone: str,
+                                         Optional[str]="IT4ILexisZone",
                                          path: Optional[str]="",
                                          print_dir_tree: Optional[bool]=False,
                                          filter_filename: Optional[str]="", 
@@ -121,7 +121,7 @@ class DatasetsCLI(object):
                        access: str, 
                        project: str, 
                        push_method: Optional[str]="empty", 
-                       zone: Optional[str]="IT4ILexisZone",
+                       zone: Optional[str]="",
                        path: Optional[str]="", 
                        contributor: Optional[list[str]]=["UNKNOWN contributor"], 
                        creator: Optional[list[str]]=["UNKNOWN creator"],
@@ -164,6 +164,8 @@ class DatasetsCLI(object):
             ------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z 
 
         _, _ = self.datasets.create_dataset(access, 
                                             project, 
@@ -183,7 +185,7 @@ class DatasetsCLI(object):
                          access: str, 
                          project: str, 
                          filename: str, 
-                         zone: Optional[str]="IT4ILexisZone", 
+                         zone: Optional[str]="", 
                          file_path: Optional[str]="./",
                          path: Optional[str]="", 
                          contributor: Optional[list[str]]=["UNKNOWN contributor"], 
@@ -235,6 +237,8 @@ class DatasetsCLI(object):
             -------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z 
 
         self.datasets.tus_uploader_new(access, project, filename, zone, file_path, path, contributor, creator, owner, publicationYear,
                                        publisher, resourceType, title, expand, encryption)
@@ -246,7 +250,7 @@ class DatasetsCLI(object):
                              access: str, 
                              project: str, 
                              filename: str, 
-                             zone: Optional[str]="IT4ILexisZone", 
+                             zone: Optional[str]="", 
                              file_path: Optional[str]="./",
                              path: Optional[str]="",  
                              encryption: Optional[str]="no") -> None:
@@ -278,6 +282,8 @@ class DatasetsCLI(object):
             -------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z 
 
         self.datasets.tus_uploader_rewrite(dataset_id, dataset_title, access, project, filename,
                                            zone, file_path, path, encryption)
@@ -403,7 +409,7 @@ class DatasetsCLI(object):
                          dataset_id: str,
                          access: str,
                          project: str,                         
-                         zone:str,
+                         zone: Optional[str] = "",
                          path: Optional[str] = "",
                          destination_file: Optional[str] = "./downloaded.tar.gz") -> None:
         """
@@ -419,8 +425,8 @@ class DatasetsCLI(object):
                 Project's short name.
             dataset_id: str
                 InternalID of the dataset.
-            zone: str
-                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
+            zone: str, optional
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone". Can be obtain by get_all_datasets() method.
             path: str, optional
                 Path to exact folder, by default = "".
             destination_file: str, optional
@@ -430,6 +436,8 @@ class DatasetsCLI(object):
             ------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z 
 
         self.datasets.download_dataset(dataset_id, access, project, zone, path, destination_file)
         
@@ -438,7 +446,7 @@ class DatasetsCLI(object):
                                      dataset_id: str, 
                                      access: str,
                                      project: str, 
-                                     zone: str,
+                                     zone: Optional[str]="",
                                      path: Optional[str]="",
                                      print_dir_tree: Optional[bool]=False,
                                      filter_filename: Optional[str]="", 
@@ -457,8 +465,8 @@ class DatasetsCLI(object):
                 Access of the dataset. One of ["user", "project", "public"]. Can be obtain by get_all_datasets() method.
             project : str
                 Project's short name in which the dataset is stored. Can be obtain by get_all_datasets() method.
-            zone : str
-                iRODS zone name in which dataset is stored, one of ["IT4ILexisZone", "LRZLexisZone"]. Can be obtain by get_all_datasets() method.
+            zone: str, optional
+                iRODS zone name in which dataset will be stored, one of ["IT4ILexisZone", "LRZLexisZone"]. By default: "IT4ILexisZone". Can be obtain by get_all_datasets() method.
             path : str, optional
                 Path within the dataset. By default: path="".
             print_dir_tree : bool, optional
@@ -487,6 +495,9 @@ class DatasetsCLI(object):
             -------
             None
         """
+        if zone == "":
+            zone = self.session.DFLT_Z 
+
         if not print_dir_tree:
             content, req_status = self.datasets.get_list_of_files_in_dataset(dataset_id, 
                                                                             access,
