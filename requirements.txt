@@ -21,13 +21,11 @@ packaging==23.1
 pandas==2.0.3
 pip-tools==7.3.0
 prettytable==3.7.0
--e git+ssh://git@code.it4i.cz/lexis/Py4Lexis.git@f0d7cff7f4d86e7317f7dea178c6566679c037fd#egg=py4lexis
 pyasn1==0.5.0
 pycodestyle==2.11.0
 pyflakes==3.1.0
 pyproject_hooks==1.0.0
 python-dateutil==2.8.2
-python-irodsclient @ git+https://github.com/lexis-project/python-irodsclient.git@7992afa83640ed02f66c8f823f4d375a2992a263
 python-jose==3.3.0
 python-keycloak==3.3.0
 pytz==2023.3
