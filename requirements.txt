@@ -37,7 +37,7 @@ tabulate==0.9.0
 tinydb==4.7.1
 tuspy==1.0.0
 tzdata==2023.3
-urllib3==2.0.6
+urllib3==2.0.7
 wcwidth==0.2.6
 xmlrunner==1.7.7
 yarl==1.9.2
