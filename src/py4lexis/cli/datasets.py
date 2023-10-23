@@ -452,7 +452,7 @@ class DatasetsCLI(object):
                                      filter_filename: Optional[str]="", 
                                      filename_compare_type: Optional[str]="",
                                      filter_size: Optional[int]=0,
-                                     size_compare_type: Optional[str]="eq", 
+                                     size_compare_type: Optional[str]="geq", 
                                      filter_type: Optional[str]="") -> None:
         """
             List all files within the dataset.
@@ -487,7 +487,7 @@ class DatasetsCLI(object):
                 "leq" => filter size <= size in table,
                 "g" => filter size > size in table,
                 "geq" => filter size >= size in table.
-                By default: "eq".
+                By default: "geq".
             filter_type : str, optional
                 To filter table of files by type. By default: "" (i.e. filter is off).
 
@@ -528,7 +528,7 @@ class DatasetsCLI(object):
                         datasets_table = datasets_table[filter_filename in datasets_table["Filename"]]
                     else:
                         print("Wrong comparison type for filename.")
-                if filter_size > 0:
+                if filter_size >= 0:
                     if size_compare_type == "eq":
                         datasets_table = datasets_table[datasets_table["Size"] == filter_size]
                     elif size_compare_type == "l":

@@ -1,6 +1,8 @@
 /test_folder
 /structures
 /datafiles
+/my_examples
+downloaded.tar.gz
 test10M.dat
 .idea
 src/py4lexis/__pycache__
