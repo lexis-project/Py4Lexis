@@ -528,7 +528,7 @@ class DatasetsCLI(object):
                         datasets_table = datasets_table[filter_filename in datasets_table["Filename"]]
                     else:
                         print("Wrong comparison type for filename.")
-                if filter_size > 0:
+                if filter_size >= 0:
                     if size_compare_type == "eq":
                         datasets_table = datasets_table[datasets_table["Size"] == filter_size]
                     elif size_compare_type == "l":
