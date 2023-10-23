@@ -17,4 +17,6 @@ Uploading datasets' files is performed by tuspy Python package, i.e. by TUS Clie
 
       python -m pip install .
     
+  It will install the Py4Lexis package with all dependencies defined in requirements.txt.
+
 5. Proceed to the https://docs.lexis.tech/ for further information how to intialise connection and use built-in methods.
