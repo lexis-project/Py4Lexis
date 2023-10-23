@@ -147,6 +147,7 @@ class LexisSession(object):
                 raise Py4LexisException(f"Some errors occurred. See log file, please.")
             else:
                 print(f"Some errors occurred. See log file, please.")
+                exit()
         else:
             if self.show_prints:
                 print(f"You have been successfully logged in LEXIS session.")

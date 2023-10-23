@@ -310,7 +310,7 @@ class Datasets(object):
                              access: str, 
                              project: str, 
                              filename: str, 
-                             zone: Optional[str]="IT4ILexisZone", 
+                             zone: Optional[str]="", 
                              file_path: Optional[str]="./",
                              path: Optional[str]="",                               
                              encryption: Optional[str]="no") -> None:
