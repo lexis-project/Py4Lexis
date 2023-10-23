@@ -22,7 +22,6 @@ dependencies = [
     "requests==2.31.0",
     "python-keycloak==3.3.0",
     "python-irodsclient==1.1.7",
-    "tomli==2.0.1",
     "tuspy==1.0.0",
     "pandas==2.0.3",
     "future==0.18.3"

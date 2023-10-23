@@ -7,8 +7,7 @@ from py4lexis.workflows.airflow import Airflow
 """
 
 # Init session with username/password as user input
-# session = LexisSession()
-
+session = LexisSession()
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Manage LEXIS datasets

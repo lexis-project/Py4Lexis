@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from typing import Optional
-from requests import Response, get, ConnectionError
+from requests import Response, get
 from py4lexis.exceptions import Py4LexisAuthException, Py4LexisException, Py4LexisPostException
 from getpass import getpass
 from py4lexis.kck_session import kck_oi
@@ -10,11 +10,6 @@ from requests import get
 from urllib3 import disable_warnings
 from time import perf_counter
 import json
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
-
 
 disable_warnings()
 
@@ -22,16 +17,16 @@ disable_warnings()
 class LexisSession(object):
 
     def __init__(self, 
-                 config_file: str | None = None, 
-                 exception_on_error: bool = False,
+                 show_prints: Optional[bool] = True,
+                 exception_on_error: Optional[bool] = False,
                  log_file: Optional[str]="./lexis_logs.log") -> None:
         """
             A class holds an LEXIS SESSION.
 
             Attributes
             ----------
-            config_file : str, 
-                path to a config file
+            show_prints: bool, optional
+                If True, messages will be printed.
             exception_on_error : bool, optional
                 If True, the exception will be raised on error. By default is set to False.
             log_file : str, optional
@@ -57,10 +52,10 @@ class LexisSession(object):
         """
         # Exception on error
         self.exception_on_error = exception_on_error
-        self.cfg = config_file
         self.Clr = Clr()
 
         # Initialise logging
+        self.show_prints: bool = show_prints
         self.log_path: str = log_file
         self.logging = logging
         self.logging.basicConfig(filename=log_file,
@@ -86,26 +81,8 @@ class LexisSession(object):
         self.logging.debug(f"Initialise API path '{self.API_PATH}' -- OK")      
         
         is_error: bool = False
-        # Load config file and initialise LEXIS session
-        if config_file is not None:
-            try:
-                with open(config_file, "rb") as _toml_file:
-                    _cfg = tomllib.load(_toml_file)
-
-                self.USERNAME: str = str(_cfg["config"]["USERNAME"])
-                self._set_tokens(str(_cfg["config"]["PWD"]))
-
-                self.logging.debug(f"Reading {config_file} -- OK")                
-
-            except FileNotFoundError:
-                is_error = True
-                self.logging.error(f"Reading '{config_file}'-- FAILED")
-            
-            except ConnectionError:
-                is_error = True
-                self.logging.error(f"Initialise '{self.API_PATH}' -- FAILED")            
-        else:            
-            self._set_tokens()
+        # Initialise LEXIS session
+        self._set_tokens()
 
         # Prepare requests header
         if self.TOKEN is not None:
@@ -124,7 +101,7 @@ class LexisSession(object):
                 else:
                     print(f"Some errors occurred. See log file, please.")
 
-    def _set_tokens(self, pwd: str = "") -> None:
+    def _set_tokens(self) -> None:
         """
             Set user's access and refresh tokens based on defined username + password.
 
@@ -134,14 +111,11 @@ class LexisSession(object):
         """
         is_error: bool = False
         try:
-            if self.cfg is not None:
-                token: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
-            else:
-                print(f"Welcome to the Py4Lexis!")
-                print(f"Please provide your credentials...")
-                self.USERNAME: str = input("Username: ")
-                pwd: str = getpass()
-                token: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
+            print(f"Welcome to the Py4Lexis!")
+            print(f"Please provide your credentials...")
+            self.USERNAME: str = input("Username: ")
+            pwd: str = getpass()
+            token: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
 
             self.REFRESH_TOKEN = token["refresh_token"]
             self.TOKEN = token["access_token"]
@@ -152,10 +126,10 @@ class LexisSession(object):
 
         except Py4LexisAuthException:
             is_error = True
-            if not self.cfg:
+            if self.show_prints:
                 print(f"Invalid user credentials! Cannot be logged in!")
-            else:
-                self.logging.error("AUTH -- INVALID USER CREDENTIALS -- FAILED")    
+            
+            self.logging.error("AUTH -- INVALID USER CREDENTIALS -- FAILED")    
         
         except Py4LexisPostException as err:
             is_error = True
@@ -174,7 +148,7 @@ class LexisSession(object):
             else:
                 print(f"Some errors occurred. See log file, please.")
         else:
-            if self.cfg is None:
+            if self.show_prints:
                 print(f"You have been successfully logged in LEXIS session.")
 
 
@@ -200,13 +174,18 @@ class LexisSession(object):
         now: float = perf_counter()
         elapsed: float = now - self._token_retrieved_at
 
-        if elapsed >= self._token_expiration and elapsed < self._refresh_expiration:
+        if elapsed < self._token_expiration and elapsed < self._refresh_expiration:
+            pass
+        elif elapsed >= self._token_expiration and elapsed < self._refresh_expiration:
             self.refresh_token()
         else:
+            print(f"elapsed: {elapsed}")
+            print(f"token exp: {self._token_expiration}")
+            print(f"refrsh exp: {self._refresh_expiration}")
             if self.exception_on_error:
                 raise Py4LexisException("Token has expired and can't be refreshed. Please, relog the session.")
             
-            if self.cfg is None:
+            if self.show_prints:
                 print(f"Token has expired and can't be refreshed. Please, relog the session.")
 
     def refresh_token(self) -> bool:
@@ -368,10 +347,10 @@ class iRODSSession(LexisSession):
                 content, status_solved, is_error = self.handle_request_status(response, 
                                                                               f"GET -- {self.Clr.yhbrr(sfouiro)}", 
                                                                               to_json=False,
-                                                                              suppress_print=True if self.cfg is not None else False)
+                                                                              suppress_print=True if not self.show_prints else False)
                 
                 if is_error:
-                    if self.cfg is None:
+                    if self.show_prints:
                         print(f"Some errors occurred while validating token on iRODS. See log file, please.")
                     
                     if self.exception_on_error:
@@ -379,7 +358,7 @@ class iRODSSession(LexisSession):
                     else:
                         return is_error
                 else:
-                    if self.cfg is None:
+                    if self.show_prints:
                         print(f"Validate token on iRODS was successfull...")
                     else:
                         self.logging.debug("GET -- VALIDATE IRODS -- OK")
@@ -400,14 +379,14 @@ class iRODSSession(LexisSession):
         if not is_error and is_error is not None:
             session = self.uc.get_irods_session(self.USERNAME, self.TOKEN)
 
-            if self.cfg is None:
+            if self.show_prints:
                 print(f"The iRODS session was successfully initialised.")
-            else:
-                self.logging.debug("iRODS -- INITIALISED -- OK")
+            
+            self.logging.debug("iRODS -- INITIALISED -- OK")
 
             return session
         else:
-            if self.cfg is None:
+            if self.show_prints:
                 print(f"Some problems occurred while initialising iRODS session. Please, see log file.")
-            else:
-                self.logging.error("iRODS -- INITIALISED -- FAILED")       
+            
+            self.logging.error("iRODS -- INITIALISED -- FAILED")       

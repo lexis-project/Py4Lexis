@@ -1,7 +1,6 @@
 from keycloak import KeycloakOpenID, KeycloakPostError
 from keycloak.exceptions import KeycloakAuthenticationError
 from irods.session import iRODSSession
-import logging
 from py4lexis.exceptions import Py4LexisAuthException, Py4LexisPostException
 from py4lexis.helper import Clr, _RR, igev, _vreen, ngano, _urby, _gomiz, _ulme, _itbbra, _yuo
 
