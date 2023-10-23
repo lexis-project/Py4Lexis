@@ -9,8 +9,6 @@ from py4lexis.workflows.airflow import Airflow
 # Init session with username/password as user input
 # session = LexisSession()
 
-# Init session with username/password in config file
-session = LexisSession(config_file="config.toml")
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Manage LEXIS datasets
