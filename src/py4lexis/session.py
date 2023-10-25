@@ -10,11 +10,14 @@ from requests import get
 from urllib3 import disable_warnings
 from time import perf_counter
 import json
+import os
 
 disable_warnings()
 
 
 class LexisSession(object):
+
+    ENV_VARS = {"user":"LEXIS_USERNAME", "pwd":"LEXIS_PASSWORD"} # env variables for authentication. Use a dict more for documentation reasons
 
     def __init__(self, 
                  show_prints: Optional[bool] = True,
@@ -111,10 +114,13 @@ class LexisSession(object):
         """
         is_error: bool = False
         try:
-            print(f"Welcome to the Py4Lexis!")
-            print(f"Please provide your credentials...")
-            self.USERNAME: str = input("Username: ")
-            pwd: str = getpass()
+            self.USERNAME = os.environ.get(self.ENV_VARS["user"])
+            pwd: str = os.environ.get(self.ENV_VARS["pwd"])
+            if self.USERNAME is None or  pwd is None:
+                print(f"Welcome to the Py4Lexis!")
+                print(f"Please provide your credentials...")
+                self.USERNAME: str = input("Username: ")
+                pwd: str = getpass()
             token: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
 
             self.REFRESH_TOKEN = token["refresh_token"]
