@@ -235,7 +235,6 @@ class Datasets(object):
                          publisher: Optional[list[str]]=["UNKNOWN publisher"],
                          resourceType: Optional[list[str]]=["NONAME resource type"], 
                          title: Optional[list[str]]=["UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")], 
-                         expand: Optional[str]="no", 
                          encryption: Optional[str]="no") -> None:
         """
             Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
@@ -268,8 +267,6 @@ class Datasets(object):
                 By default: ["UNKNOWN resource type"].
             title: list[str], optional
                 By default: ["UNTITLED_Dataset_" + TIMESTAMP].
-            expand: str, optional
-                By default: "no".
             encryption: str, optional
                 By default: "no".
 
@@ -279,6 +276,10 @@ class Datasets(object):
         """
         if zone == "":
             zone = self.session.DFLT_Z
+
+        expand: str = "no"
+        if ".tag.gz" in file_path:
+            expand = "yes"
 
         file_path = file_path + filename
         metadata: dict = {

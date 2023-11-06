@@ -195,7 +195,6 @@ class DatasetsCLI(object):
                          publisher: Optional[list[str]]=["UNKNOWN publisher"],
                          resourceType: Optional[list[str]]=["UNKNOWN resource type"], 
                          title: Optional[list[str]]=["UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")], 
-                         expand: Optional[str]="no", 
                          encryption: Optional[str]="no") -> None:
         """
             Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
@@ -228,8 +227,6 @@ class DatasetsCLI(object):
                 By default: ["UNKNOWN resource type"].
             title: list[str], optional
                 By default: ["UNTITLED_Dataset_" + TIMESTAMP].
-            expand: str, optional
-                By default: "no".
             encryption: str, optional
                 By default: "no".
 
@@ -241,7 +238,7 @@ class DatasetsCLI(object):
             zone = self.session.DFLT_Z 
 
         self.datasets.tus_uploader_new(access, project, filename, zone, file_path, path, contributor, creator, owner, publicationYear,
-                                       publisher, resourceType, title, expand, encryption)
+                                       publisher, resourceType, title, encryption)
         
 
     def tus_uploader_rewrite(self, 
