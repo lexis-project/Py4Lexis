@@ -45,3 +45,6 @@ ds.get_list_of_files_in_dataset(dataset_id="DATASET_UUID_HERE", access="ACCESS_H
 
 # List all files in dataset as DataFrame table
 ds.get_list_of_files_in_dataset(dataset_id="DATASET_UUID_HERE", access="ACCESS_HERE", project="PROJECT_SHORTNAME_HERE", print_dir_tree=False)
+
+# Get a dataset path
+ds.get_dataset_path(access="DATASETS_ACCESS", project="PROJECT_SHORT_NAME", internalID="DATASETS_INTERNAL_ID")
