@@ -109,6 +109,9 @@ class DatasetsCLI(object):
                                          size_compare_type: Optional[str]="eq", 
                                          filter_type: Optional[str]="") -> None:
                 List all files within the dataset.
+
+            get_dataset_path(access: str, project: str, internalID: str, username: Optional[str]="") -> str
+                Prints a path for an existing dataset as the combination of access, project, internalID and username.
         """
         self.print_content: bool = print_content
         self.session: LexisSession = session
@@ -559,7 +562,7 @@ class DatasetsCLI(object):
 
     def get_dataset_path(self, access: str, project: str, internalID: str, username: Optional[str]=""):
         """
-            Returns a path for existing dataset as the combination of access, project, internalID and username.
+            Prints a path for an existing dataset as the combination of access, project, internalID and username.
 
             Parameters:
             -----------

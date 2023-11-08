@@ -107,6 +107,9 @@ class Datasets(object):
                                          path: Optional[str]="",
                                          content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame
                 List all files within the dataset.
+
+            get_dataset_path(access: str, project: str, internalID: str, username: Optional[str]="") -> str
+                Returns a path for an existing dataset as the combination of access, project, internalID and username.
         """
         self.session = session
         self.print_content = print_content
@@ -962,7 +965,7 @@ class Datasets(object):
 
     def get_dataset_path(self, access: str, project: str, internalID: str, username: Optional[str]="") -> str:
         """
-            Returns a path for existing dataset as the combination of access, project, internalID and username.
+            Returns a path for an existing dataset as the combination of access, project, internalID and username.
 
             Parameters:
             -----------
