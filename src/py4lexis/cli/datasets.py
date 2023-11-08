@@ -555,3 +555,27 @@ class DatasetsCLI(object):
             tree_items: Generator[DirectoryTree, None, None] = DirectoryTree.make_tree(tree_content)
             for item in tree_items:
                 print(item.to_string())
+
+
+    def get_dataset_path(self, access: str, project: str, internalID: str, username: Optional[str]=""):
+        """
+            Returns a path for existing dataset as the combination of access, project, internalID and username.
+
+            Parameters:
+            -----------
+            access : str
+                Access mode of the project (user, project, public)
+            project : str
+                Project's short name.
+            internalID : str
+                Dataset's internalID as UUID.
+            username : str, optional
+                The iRODS username. Needed when user access is defined
+
+            Returns:
+            --------
+            None
+
+        """
+
+        print(f"Path: {self.datasets.get_dataset_path(access, project, internalID, username)}")

@@ -112,7 +112,7 @@ class LexisSession(object):
         is_error: bool = False
         try:
             print(f"Welcome to the Py4Lexis!")
-            print(f"Please login via webbrowser...")
+            print(f"Proceeding login via web browser...")
             
             tokens: dict[str] = self.uc.login()
 
