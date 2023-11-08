@@ -27,13 +27,22 @@ class AirflowCLI(object):
         Methods
         -------
         get_workflows_list() -> None
-            Prints the table of existing workflows (DAGs).
+            Prints list of existing workflows (DAGs).
 
         get_workflow_info(workflow_id: str) -> None
             Prints info of existing workflow (DAG) selected by its workflow ID (dag_id).
 
         get_workflow_details(workflow_id: str) -> None
             Prints details of existing workflow (DAG) selected by its workflow ID (dag_id).
+
+        get_workflow_params(workflow_id: str) -> tuple[dict, int] | tuple[None, None]
+            Gets and prints params of existing workflow (DAG) selected by its workflow ID (dag_id).
+
+        execute_workflow(workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> None
+            Prints status of workflow (DAG) execution selected by its workflow ID (dag_id).
+        
+        get_workflow_states(workflow_id: str, filter_by_workflow_run_id: Optional[str]="", filter_by_workflow_state: Optional[str]="") -> None
+            Prints run states of existing workflow (DAG) selected by its workflow ID (dag_id).
         
     """
     

@@ -25,22 +25,22 @@ class Airflow(object):
         Methods
         -------
         get_workflows_list(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame | None, int] | tuple[None, None]
-            Get list of existing workflows (DAGs).
+            Gets list of existing workflows (DAGs).
 
         get_workflow_info(workflow_id: str) -> tuple[dict | None, int] | tuple[None, None]
-            Get info of existing workflow (DAG) selected by its workflow ID (dag_id).
+            Gets info of existing workflow (DAG) selected by its workflow ID (dag_id).
 
         get_workflow_details(workflow_id: str) -> tuple[dict, int] | tuple[None, None]
-            Get details of existing workflow (DAG) selected by its workflow ID (dag_id).
+            Gest details of existing workflow (DAG) selected by its workflow ID (dag_id).
 
         get_workflow_params(self, workflow_id: str) -> tuple[dict, int] | tuple[None, None]
-            Get params of existing workflow (DAG) selected by its workflow ID (dag_id).
+            Gets params of existing workflow (DAG) selected by its workflow ID (dag_id).
 
         execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> tuple[dict, int] | tuple[None, None]
-            Get state of existing workflow (DAG) selected by its workflow ID (dag_id).
+            Gets params of existing workflow (DAG) selected by its workflow ID (dag_id).
         
         get_workflow_states(self, workflow_id: str, content_as_pandas: Optional[bool]=False) -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]
-            Get run states of existing workflow (DAG) selected by its workflow ID (dag_id).
+            Gets run states of existing workflow (DAG) selected by its workflow ID (dag_id).
     """
     
     def __init__(self, session: LexisSession, 
