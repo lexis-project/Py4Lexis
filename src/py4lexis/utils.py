@@ -362,7 +362,7 @@ def convert_dir_tree_to_pandas(session: LexisSession,
         return datasets_table  
     
 
-def convert_list_of_objects_to_pandas(session: LexisSession, 
+def convert_list_of_dicts_to_pandas(session: LexisSession, 
                                       content: list[dict] | dict,                                      
                                       supress_print: Optional[bool]=False) -> DataFrame | None:
     """

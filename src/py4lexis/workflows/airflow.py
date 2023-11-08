@@ -6,7 +6,7 @@ from datetime import datetime
 from random import random
 from py4lexis.exceptions import Py4LexisException
 from py4lexis.session import LexisSession
-from py4lexis.utils import convert_list_of_objects_to_pandas
+from py4lexis.utils import convert_list_of_dicts_to_pandas
 
 
 class Airflow(object):
@@ -24,21 +24,23 @@ class Airflow(object):
 
         Methods
         -------
-        create_dataset(access: str, 
-                        project: str, 
-                        push_method: Optional[str]="empty", 
-                        zone: Optional[str]="IT4ILexisZone",
-                        path: Optional[str]="", 
-                        contributor: Optional[list[str]]=["UNKNOWN contributor"], 
-                        creator: Optional[list[str]]=["UNKNOWN creator"],
-                        owner: Optional[list[str]]=["UNKNOWN owner"], 
-                        publicationYear: Optional[str]=str(date.today().year),
-                        publisher: Optional[list[str]]=["UNKNOWN publisher"], 
-                        resourceType: Optional[str]=str("UNKNOWN resource type"),
-                        title: Optional[str]=str("UNTITLED_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))) -> tuple[dict, int] | tuple[None, None]
-            Create an empty dataset with specified attributes.
+        get_workflows_list(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame | None, int] | tuple[None, None]
+            Get list of existing workflows (DAGs).
 
+        get_workflow_info(workflow_id: str) -> tuple[dict | None, int] | tuple[None, None]
+            Get info of existing workflow (DAG) selected by its workflow ID (dag_id).
+
+        get_workflow_details(workflow_id: str) -> tuple[dict, int] | tuple[None, None]
+            Get details of existing workflow (DAG) selected by its workflow ID (dag_id).
+
+        get_workflow_params(self, workflow_id: str) -> tuple[dict, int] | tuple[None, None]
+            Get params of existing workflow (DAG) selected by its workflow ID (dag_id).
+
+        execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> tuple[dict, int] | tuple[None, None]
+            Get state of existing workflow (DAG) selected by its workflow ID (dag_id).
         
+        get_workflow_states(self, workflow_id: str, content_as_pandas: Optional[bool]=False) -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]
+            Get run states of existing workflow (DAG) selected by its workflow ID (dag_id).
     """
     
     def __init__(self, session: LexisSession, 
@@ -87,7 +89,7 @@ class Airflow(object):
                                                                                   suppress_print=self.suppress_print)        
 
         if not is_error and content_as_pandas:
-            content = convert_list_of_objects_to_pandas(self.session, 
+            content = convert_list_of_dicts_to_pandas(self.session, 
                                                         content["dags"], 
                                                         supress_print=self.suppress_print)
 
@@ -109,7 +111,6 @@ class Airflow(object):
             if self.print_content:
                 print(f"content: {content}")
             return content, response.status_code
-
 
 
     def get_workflow_info(self, 
@@ -273,7 +274,7 @@ class Airflow(object):
 
     def execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> tuple[dict, int] | tuple[None, None]:
         """
-            Get state of existing workflow (DAG) selected by its workflow ID (dag_id).
+            Execute manually an existing workflow (DAG) which is selected by its workflow ID (dag_id).
 
             Parameters
             ----------
@@ -282,7 +283,7 @@ class Airflow(object):
             workflow_parameters: dict
                 Parameters of the existing workflow (DAG) as dictionary.
             workflow_run_id: str | None, optional
-                Workflow run id (dag_run_id). 
+                Workflow run id (dag_run_id). If None, will be set automatically.
 
             Returns
             -------
@@ -328,7 +329,6 @@ class Airflow(object):
                 raise Py4LexisException(f"Some errors occurred while executing existing workflow (DAG) by its ID. See log file, please.")
             return None, None
         else:
-
             content_out = {
                 "status": response.status_code,
                 "workflow_id": content["dag_id"],
@@ -343,19 +343,21 @@ class Airflow(object):
             return content_out, response.status_code
         
 
-    def get_workflow_states(self, workflow_id: str) -> tuple[list[dict], int] | tuple[None, None]:
+    def get_workflow_states(self, workflow_id: str, content_as_pandas: Optional[bool]=False) -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]:
         """
             Get run states of existing workflow (DAG) selected by its workflow ID (dag_id).
 
             Parameters
             ----------
             workflow_id: str
-                Workflow ID (dag_id) of the existing workflow. 
+                Workflow ID (dag_id) of the existing workflow.
+            content_as_pandas: bool, optional
+                If True, content will be returned as DataFrame. False by default.
 
             Returns
             -------
-            dict | None
-                Run states of existing workflow as list of dictionaries.  None is returned if some errors have occured.
+            dict | DataFrame | None
+                Run states of existing workflow as list of dictionaries or as DataFrame. None is returned if some errors have occured.
             int | None
                 Status of the HTTP request.  None is returned if some errors have occured.
         """
@@ -385,11 +387,9 @@ class Airflow(object):
             if self.session.exception_on_error:
                 raise Py4LexisException(f"Some errors occurred while retrieving run states of existing workflow (DAG) by its ID. See log file, please.")
             return None, None
-        else:
-            
-            workflow_states: list[dict] = {
-                'dag_runs': []
-            }
+        else:            
+            workflow_states: list[dict] = []
+
             for dag in content['dag_runs']:
                 exec_time: datetime = parser.parse(dag["execution_date"])
 
@@ -398,8 +398,23 @@ class Airflow(object):
                     "execution_date": exec_time.ctime(),
                     "state": dag["state"]
                 }
+                workflow_states.append(workflow_state)
 
-                workflow_states["dag_runs"].append(workflow_state)
+            if content_as_pandas:
+                workflow_states: DataFrame | None = convert_list_of_dicts_to_pandas(self.session, 
+                                                                                    workflow_states, 
+                                                                                    supress_print=self.suppress_print)
+
+                if workflow_states is None:
+                    self.session.logging.error(f"GET -- {url} -- CONVERT TO DATAFRAME -- FAILED")
+                    
+                    if not self.suppress_print:
+                        print(f"Some errors occurred while retrieving run states of existing workflow (DAG) by its ID. See log file, please.")
+                    if self.session.exception_on_error:
+                        raise Py4LexisException(f"Some errors occurred while retrieving run states of existing workflow (DAG) by its ID. See log file, please.")
+                    return None, None                    
+                else:
+                    self.session.logging.debug(f"GET -- {url} -- CONVERT TO DATAFRAME -- OK") 
 
             if not self.suppress_print:
                     print("Run states of existing workflow (DAG) successfully retrieved -- OK") 
