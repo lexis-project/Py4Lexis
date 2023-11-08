@@ -1,11 +1,12 @@
 from py4lexis.session import LexisSession
 from py4lexis.workflows.airflow import Airflow
+from py4lexis.cli.airflow import AirflowCLI
 
 """
     Example file how to use Py4Lexis via CLI to manage Airflow workflows
 """
 
-# Init session with username/password as user input
+# Init session with username/password via LEXIS login page
 session = LexisSession()
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -13,7 +14,9 @@ session = LexisSession()
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Init Airflow Manager
-airflow = Airflow(session)
+airflow = Airflow(session)  # Core class to manage workflows. Functions return content of requests.
+# airflow = AirflowCLI(session)  # Interactive class to manage datasets. Functions mostly return None because they print content to console/terminal. Only get_workflow_params returns the content.
+
 
 # Get list of All Existing Workflows
 wrfs, _ = airflow.get_workflows_list()

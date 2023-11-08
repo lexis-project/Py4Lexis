@@ -1,21 +1,23 @@
 from py4lexis.session import LexisSession
+from py4lexis.ddi.datasets import Datasets
 from py4lexis.cli.datasets import DatasetsCLI
 
 """
-    Example file how to use Py4Lexis via CLI to manage datasets
+    Example file how to use Py4Lexis to manage datasets
 """
 
-# Init session with username/password as user input
+# Init session with username/password via LEXIS login page
 session = LexisSession()
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Manage LEXIS datasets
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Get Datasets manager
-ds = DatasetsCLI(session)
+# ds = Datasets(session)  # Core class to manage datasets. Functions return content of requests.
+ds = DatasetsCLI(session) # Interactive class to manage datasets. Functions return None because they print content to console/terminal.
 
 # Create new dataset
-new_ds = ds.create_dataset("ACCESS_HERE", "PROJECT_SHORTNAME_HERE")
+ds.create_dataset("ACCESS_HERE", "PROJECT_SHORTNAME_HERE")
 
 # Create new dataset and upload file into it
 ds.tus_uploader_new("ACCESS_HERE", "PROJECT_SHORTNAME_HERE", "FILENAME_HERE", file_path="FILEPATH_HERE", title=["TITLE_HERE"])
@@ -33,7 +35,7 @@ ds.tus_uploader_rewrite(dataset_id="DATASET_UUID_HERE",
 ds.get_dataset_status(filter_project="PROJECT_SHORTNAME_HERE")
 
 # List all datasets
-dsets = ds.get_all_datasets(filter_access="ACCESS_HERE", filter_project="PROJECT_SHORTNAME_HERE")
+ds.get_all_datasets(filter_access="ACCESS_HERE", filter_project="PROJECT_SHORTNAME_HERE")
 
 # Download Dataset
 ds.download_dataset(dataset_id="DATASET_UUID_HERE", access="ACCESS_HERE", project="PROJECT_SHORTNAME_HERE")
