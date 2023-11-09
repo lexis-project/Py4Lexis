@@ -55,10 +55,10 @@ class kck_oi():
                 print(f"checking address: {location}")
                 check = a_socket.connect_ex(location)
 
-                if check == 0 or check == 10061:
-                    in_use = False
-                else:
+                if check == 0:
                     port += 1
+                else:
+                    in_use = False
 
             print(f"Starting server to parse tokens...")
             with OAuthHttpServer(("", port), OAuthHttpHandler) as httpd:
