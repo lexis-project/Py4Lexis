@@ -14,24 +14,25 @@ session = LexisSession()
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Init Airflow Manager
-airflow = Airflow(session)  # Core class to manage workflows. Functions return content of requests.
-# airflow = AirflowCLI(session)  # Interactive class to manage datasets. Functions mostly return None because they print content to console/terminal. Only get_workflow_params returns the content.
+# airflow = Airflow(session)  # Core class to manage workflows. Functions return content of requests.
+airflow = AirflowCLI(session)  # Interactive class to manage datasets. Functions mostly return None because they print content to console/terminal. Only get_workflow_params returns the content.
 
+# Get list of all existing workflows
+airflow.get_workflows_list()
 
-# Get list of All Existing Workflows
-wrfs, _ = airflow.get_workflows_list()
-
-# Get info about existing Workflow
-wrf_info, _ = airflow.get_workflow_info("DAG_ID_HERE")
+# Get info about existing workflow
+airflow.get_workflow_info(workflow_id="WORKFLOW_(DAG)_ID")
 
 # Get details of existing workflow
-wrf_detail, _ = airflow.get_workflow_details("DAG_ID_HERE")
+airflow.get_workflow_details(workflow_id="WORKFLOW_(DAG)_ID")
 
-# Get Workflow Params
-wrf_params, _ = airflow.get_workflow_params("DAG_ID_HERE")
+# Get workflow's parameters (it prints the content and also returns it)
+wrf_params = airflow.get_workflow_params(workflow_id="WORKFLOW_(DAG)_ID")
 
-# Execute Workflow
-post_response, _ = airflow.execute_workflow("DAG_ID_HERE", wrf_params)
+# Execute workflow
+airflow.execute_workflow(workflow_id="WORKFLOW_(DAG)_ID", 
+                         workflow_parameters=wrf_params)
 
-# Get Workflows' state
-wrf_states, _ = airflow.get_workflow_states("DAG_ID_HERE")
+# Get workflows' state
+airflow.get_workflow_states(workflow_id="WORKFLOW_(DAG)_ID",
+                            filter_by_workflow_state="running") # Can be also filtered by Workflow Run ID
