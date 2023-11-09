@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib
 from typing import Optional
 import requests as req
 from requests import Response
@@ -106,6 +107,9 @@ class Datasets(object):
                                          path: Optional[str]="",
                                          content_as_pandas: Optional[bool]=False) -> dict[str] | DataFrame
                 List all files within the dataset.
+
+            get_dataset_path(access: str, project: str, internalID: str, username: Optional[str]="") -> str
+                Returns a path for an existing dataset as the combination of access, project, internalID and username.
         """
         self.session = session
         self.print_content = print_content
@@ -235,7 +239,6 @@ class Datasets(object):
                          publisher: Optional[list[str]]=["UNKNOWN publisher"],
                          resourceType: Optional[list[str]]=["NONAME resource type"], 
                          title: Optional[list[str]]=["UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")], 
-                         expand: Optional[str]="no", 
                          encryption: Optional[str]="no") -> None:
         """
             Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
@@ -268,8 +271,6 @@ class Datasets(object):
                 By default: ["UNKNOWN resource type"].
             title: list[str], optional
                 By default: ["UNTITLED_Dataset_" + TIMESTAMP].
-            expand: str, optional
-                By default: "no".
             encryption: str, optional
                 By default: "no".
 
@@ -279,6 +280,10 @@ class Datasets(object):
         """
         if zone == "":
             zone = self.session.DFLT_Z
+
+        expand: str = "no"
+        if ".tag.gz" in file_path:
+            expand = "yes"
 
         file_path = file_path + filename
         metadata: dict = {
@@ -956,3 +961,55 @@ class Datasets(object):
             if self.print_content:
                 print(f"{content}")
             return content, response.status_code
+               
+
+    def get_dataset_path(self, access: str, project: str, internalID: str, username: Optional[str]="") -> str:
+        """
+            Returns a path for an existing dataset as the combination of access, project, internalID and username.
+
+            Parameters:
+            -----------
+            access : str
+                Access mode of the project (user, project, public)
+            project : str
+                Project's short name.
+            internalID : str
+                Dataset's internalID as UUID.
+            username : str, optional
+                The iRODS username. Needed when user access is defined
+
+            Returns:
+            --------
+            str
+                Staging dataset path.
+
+        """
+        if access == "user":
+            return f"user/{self._targetProjectHash(project)}/{username}/{internalID}"
+        elif access == "project":
+            return f"Path: project/{self._targetProjectHash(project)}/{internalID}"
+        elif access == "public":
+            return f"Path: public/{self.targetProjectHash(project)}/{internalID}"
+        else:
+            return "No_Dataset_Specified"
+
+
+    @staticmethod
+    def _targetProjectHash(project: str) -> str:
+        """
+            Hashes a project which allows the mapping of projects to paths in iRODS.
+
+            Parameters:
+            -----------
+            project : str
+                Project's short name.
+
+            Returns:
+            --------
+            str
+                The project hash.
+
+        """
+        
+        tmpHash: str = hashlib.md5(project.encode("utf8")).hexdigest()
+        return "proj" + tmpHash

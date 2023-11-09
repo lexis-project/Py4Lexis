@@ -109,6 +109,9 @@ class DatasetsCLI(object):
                                          size_compare_type: Optional[str]="eq", 
                                          filter_type: Optional[str]="") -> None:
                 List all files within the dataset.
+
+            get_dataset_path(access: str, project: str, internalID: str, username: Optional[str]="") -> str
+                Prints a path for an existing dataset as the combination of access, project, internalID and username.
         """
         self.print_content: bool = print_content
         self.session: LexisSession = session
@@ -195,7 +198,6 @@ class DatasetsCLI(object):
                          publisher: Optional[list[str]]=["UNKNOWN publisher"],
                          resourceType: Optional[list[str]]=["UNKNOWN resource type"], 
                          title: Optional[list[str]]=["UNTITLED_TUS_Dataset_" + datetime.now().strftime("%d-%m-%Y_%H:%M:%S")], 
-                         expand: Optional[str]="no", 
                          encryption: Optional[str]="no") -> None:
         """
             Creates a new dataset with specified metadata and upload a file or whole directory tree to it.
@@ -228,8 +230,6 @@ class DatasetsCLI(object):
                 By default: ["UNKNOWN resource type"].
             title: list[str], optional
                 By default: ["UNTITLED_Dataset_" + TIMESTAMP].
-            expand: str, optional
-                By default: "no".
             encryption: str, optional
                 By default: "no".
 
@@ -241,7 +241,7 @@ class DatasetsCLI(object):
             zone = self.session.DFLT_Z 
 
         self.datasets.tus_uploader_new(access, project, filename, zone, file_path, path, contributor, creator, owner, publicationYear,
-                                       publisher, resourceType, title, expand, encryption)
+                                       publisher, resourceType, title, encryption)
         
 
     def tus_uploader_rewrite(self, 
@@ -558,3 +558,27 @@ class DatasetsCLI(object):
             tree_items: Generator[DirectoryTree, None, None] = DirectoryTree.make_tree(tree_content)
             for item in tree_items:
                 print(item.to_string())
+
+
+    def get_dataset_path(self, access: str, project: str, internalID: str, username: Optional[str]=""):
+        """
+            Prints a path for an existing dataset as the combination of access, project, internalID and username.
+
+            Parameters:
+            -----------
+            access : str
+                Access mode of the project (user, project, public)
+            project : str
+                Project's short name.
+            internalID : str
+                Dataset's internalID as UUID.
+            username : str, optional
+                The iRODS username. Needed when user access is defined
+
+            Returns:
+            --------
+            None
+
+        """
+
+        print(f"Path: {self.datasets.get_dataset_path(access, project, internalID, username)}")

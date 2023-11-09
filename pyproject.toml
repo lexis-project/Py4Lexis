@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py4lexis"
-version = "1.1.0"
+version = "1.2.0"
 description = "Provides functions to manage datasets within LEXIS platform."
 readme = "README.md"
 authors = [{ name = "Martin Golasowski", email = "martin.golasowski@vsb.cz" },

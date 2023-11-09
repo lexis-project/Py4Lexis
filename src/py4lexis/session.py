@@ -1,9 +1,9 @@
+
 from __future__ import annotations
 import logging
 from typing import Optional
 from requests import Response, get
 from py4lexis.exceptions import Py4LexisAuthException, Py4LexisException, Py4LexisPostException
-from getpass import getpass
 from py4lexis.kck_session import kck_oi
 from py4lexis.helper import Clr, sfouiro, _itbbra
 from requests import get
@@ -71,7 +71,6 @@ class LexisSession(object):
         self._token_expiration = 0
         self._refresh_expiration = 0
 
-        self.USERNAME: str = ""
         self.DFLT_Z = self.Clr.get("Z")
         self.API_AIR: str = self.Clr.get("AIR")
         self.API_PATH: str = self.Clr.get("API")
@@ -101,6 +100,7 @@ class LexisSession(object):
                 else:
                     print(f"Some errors occurred. See log file, please.")
 
+
     def _set_tokens(self) -> None:
         """
             Set user's access and refresh tokens based on defined username + password.
@@ -112,24 +112,23 @@ class LexisSession(object):
         is_error: bool = False
         try:
             print(f"Welcome to the Py4Lexis!")
-            print(f"Please provide your credentials...")
-            self.USERNAME: str = input("Username: ")
-            pwd: str = getpass()
-            token: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
+            print(f"Proceeding login via LEXIS login page...")
+            
+            tokens: dict[str] = self.uc.login()
 
-            self.REFRESH_TOKEN = token["refresh_token"]
-            self.TOKEN = token["access_token"]
-            self._token_expiration = token["expires_in"]
-            self._refresh_expiration = token["refresh_expires_in"]
+            self.REFRESH_TOKEN = tokens["refresh_token"]
+            self.TOKEN = tokens["access_token"]
+            self._token_expiration = tokens["expires_in"]
+            self._refresh_expiration = tokens["refresh_expires_in"]
             self._token_retrieved_at = perf_counter()
             self.logging.debug(f"POST -- AUTH -- TOKEN -- OK")
 
         except Py4LexisAuthException:
             is_error = True
             if self.show_prints:
-                print(f"Invalid user credentials! Cannot be logged in!")
+                print(f"Something bad happened! Cannot be logged in!")
             
-            self.logging.error("AUTH -- INVALID USER CREDENTIALS -- FAILED")    
+            self.logging.error("AUTH -- LOGIN -- FAILED")    
         
         except Py4LexisPostException as err:
             is_error = True
@@ -162,6 +161,7 @@ class LexisSession(object):
         """
         return self.TOKEN
 
+
     def get_refresh_token(self) -> str:
         """
             Returns
@@ -171,6 +171,7 @@ class LexisSession(object):
         """
         return self.REFRESH_TOKEN
     
+
     def check_token(self):
         now: float = perf_counter()
         elapsed: float = now - self._token_retrieved_at
@@ -188,6 +189,7 @@ class LexisSession(object):
             
             if self.show_prints:
                 print(f"Token has expired and can't be refreshed. Please, relog the session.")
+
 
     def refresh_token(self) -> bool:
         """
@@ -229,6 +231,7 @@ class LexisSession(object):
         else:
             return True
         
+
     def handle_request_status(self, 
                               response: Response, 
                               log_msg: str, 

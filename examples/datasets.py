@@ -1,45 +1,77 @@
 from py4lexis.session import LexisSession
+from py4lexis.ddi.datasets import Datasets
 from py4lexis.cli.datasets import DatasetsCLI
 
 """
-    Example file how to use Py4Lexis via CLI to manage datasets
+    Example file how to use Py4Lexis to manage datasets
 """
 
-# Init session with username/password as user input
+# Init session with username/password via LEXIS login page
 session = LexisSession()
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Manage LEXIS datasets
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Get Datasets manager
-ds = DatasetsCLI(session)
+# ds = Datasets(session)  # Core class to manage datasets. Functions return content of requests.
+ds = DatasetsCLI(session) # Interactive class to manage datasets. Functions return None because they print content to console/terminal.
 
 # Create new dataset
-new_ds = ds.create_dataset("ACCESS_HERE", "PROJECT_SHORTNAME_HERE")
+ds.create_dataset(access="DATASET_ACCESS", 
+                  project="PROJECT_SHORT_NAME")
 
 # Create new dataset and upload file into it
-ds.tus_uploader_new("ACCESS_HERE", "PROJECT_SHORTNAME_HERE", "FILENAME_HERE", file_path="FILEPATH_HERE", title=["TITLE_HERE"])
+ds.tus_uploader_new(access="DATASET_ACCESS", 
+                    project="PROJECT_SHORT_NAME", 
+                    filename="FILENAME", 
+                    file_path="FILE_PATH", 
+                    title=["TITLE_HERE"])
 
-# Add new directory tree of files to existing dataset or rewrite existing files in such directory tree
-ds.tus_uploader_rewrite(dataset_id="DATASET_UUID_HERE",
+# Upload new files to existing dataset or rewrite existing ones
+ds.tus_uploader_rewrite(dataset_id="DATASET_INTERNAL_ID",
                         dataset_title="DATASET_TITLE", # Dataset title have to be same as it is identified by DATASET_UUID
-                        project="PROJECT_SHORTNAME_HERE", 
+                        project="PROJECT_SHORT_NAME", 
                         access="ACCESS_HERE",
-                        filename="FILENAME_HERE",
-                        file_path="FILEPATH_HERE")
+                        filename="FILENAME",
+                        file_path="FILE_PATH")
 
 
-# Get status of files being uploaded to datasets
-ds.get_dataset_status(filter_project="PROJECT_SHORTNAME_HERE")
+# Get datasets' upload status
+ds.get_dataset_status(filter_project="PROJECT_SHORT_NAME") # Filters are available only in interactive mode
+
 
 # List all datasets
-dsets = ds.get_all_datasets(filter_access="ACCESS_HERE", filter_project="PROJECT_SHORTNAME_HERE")
+ds.get_all_datasets(filter_access="DATASET_ACCESS", 
+                    filter_project="PROJECT_SHORT_NAME") # Filters are available only in interactive mode
+
+
+# Delete dataset
+ds.delete_dataset_by_id(dataset_id="DATASETS_INTERNAL_ID", 
+                        access="DATASET_ACCESS", 
+                        project="PROJECT_SHORT_NAME")
+
 
 # Download Dataset
-ds.download_dataset(dataset_id="DATASET_UUID_HERE", access="ACCESS_HERE", project="PROJECT_SHORTNAME_HERE")
+ds.download_dataset(dataset_id="DATASET_INTERNAL_ID", 
+                    access="DATASET_ACCESS", 
+                    project="PROJECT_SHORT_NAME")
+
 
 # List all files in dataset as ASCII directory tree
-ds.get_list_of_files_in_dataset(dataset_id="DATASET_UUID_HERE", access="ACCESS_HERE", project="PROJECT_SHORTNAME_HERE", print_dir_tree=True)
+ds.get_list_of_files_in_dataset(dataset_id="DATASET_INTERNAL_ID", 
+                                access="DATASET_ACCESS", 
+                                project="PROJECT_SHORT_NAME", 
+                                print_dir_tree=True) # print_dir_tree parameter is available only in interactive mode
+
 
 # List all files in dataset as DataFrame table
-ds.get_list_of_files_in_dataset(dataset_id="DATASET_UUID_HERE", access="ACCESS_HERE", project="PROJECT_SHORTNAME_HERE", print_dir_tree=False)
+ds.get_list_of_files_in_dataset(dataset_id="DATASET_INTERNAL_ID", 
+                                access="DATASET_ACCESS", 
+                                project="PROJECT_SHORT_NAME", 
+                                print_dir_tree=False) # print_dir_tree parameter is available only in interactive mode
+
+
+# Get a dataset path
+ds.get_dataset_path(access="DATASET_ACCESS", 
+                    project="PROJECT_SHORT_NAME", 
+                    internalID="DATASETS_INTERNAL_ID")
