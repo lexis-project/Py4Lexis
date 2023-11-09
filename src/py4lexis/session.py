@@ -64,7 +64,7 @@ class LexisSession(object):
                                  format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 
         # Prepare tokens
-        self.uc = kck_oi()
+        self.uc = kck_oi(logging=self.logging)
         self.REFRESH_TOKEN: str = ""
         self.TOKEN: str = ""
         self._token_retrieved_at = 0

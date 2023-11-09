@@ -15,8 +15,9 @@ from py4lexis.helper import Clr, _RR, igev, _vreen, ngano, _urby, _gomiz, _ulme,
 
 class kck_oi():
 
-    def __init__(self):
+    def __init__(self, logging):
         self.Clr = Clr() 
+        self.logging = logging
         self._oid = KeycloakOpenID(self.Clr.yhbrr(_RR) + "/auth/", self.Clr.yhbrr(igev), self.Clr.yhbrr(_vreen), client_secret_key=self.Clr.yhbrr(ngano))
 
 
@@ -44,15 +45,15 @@ class kck_oi():
 
         try:
             # Check if port is in use. If yes, select next one
-            print(f"Trying to get SOCKET stream...")
+            self.logging.debug(f"AUTH -- Trying to get SOCKET stream...")
             a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             
-            print(f"Identifying used ports...")
+            self.logging.debug(f"AUTH -- Identifying used ports...")
             port: int = int(self.Clr.yhbrr(cihar))
             in_use: bool = True
             while in_use:
                 location: tuple[str, int] = (self.Clr.yhbrr(erdtirec), port)
-                print(f"checking address: {location}")
+                self.logging.debug(f"AUTH -- checking address: {location}")
                 check = a_socket.connect_ex(location)
 
                 if check == 0:
@@ -60,15 +61,15 @@ class kck_oi():
                 else:
                     in_use = False
 
-            print(f"Starting server to parse tokens...")
+            self.logging.debug(f"AUTH -- Starting server to parse tokens...")
             with OAuthHttpServer(("", port), OAuthHttpHandler) as httpd:
-                print(f"Starting oauth webclient...")
+                self.logging.debug(f"AUTH -- Starting oauth webclient...")
                 web_client = WebApplicationClient(self.Clr.yhbrr(_vreen))
                 
-                print(f"Generating code...")
+                self.logging.debug(f"AUTH -- Generating code...")
                 code_verifier, code_challenge = self._generate_code()
 
-                print(f"Preparing request uri...")
+                self.logging.debug(f"AUTH -- Preparing request uri...")
                 auth_uri = web_client.prepare_request_uri(self.Clr.yhbrr(_uitrauh), 
                                                           redirect_uri=f"http://{self.Clr.yhbrr(erdtirec)}:{port}", 
                                                           scope=[self.Clr.yhbrr(_ulme)], 
@@ -76,16 +77,16 @@ class kck_oi():
                                                           code_challenge=code_challenge, 
                                                           code_challenge_method=self.Clr.yhbrr(hdmathesho) )
                 
-                print(f"Opening browser...")
+                self.logging.debug(f"AUTH -- Opening browser...")
                 webbrowser.open_new(auth_uri)
 
-                print(f"Catching the response in client server...")
+                self.logging.debug(f"AUTH -- Catching the response in client server...")
                 httpd.handle_request()
 
-                print(f"Obtaining authorization code...")
+                self.logging.debug(f"AUTH -- Obtaining authorization code...")
                 auth_code = httpd.authorization_code
 
-                print(f"Preparing data for token request...")
+                self.logging.debug(f"AUTH -- Preparing data for token request...")
                 data: dict = {
                     "code": auth_code,
                     "client_id": self.Clr.yhbrr(_vreen),
@@ -95,12 +96,12 @@ class kck_oi():
                     "code_verifier": code_verifier
                 }
                 
-                print(f"Sending token request...")
+                self.logging.debug(f"AUTH -- Sending token request...")
                 response: requests.Request = requests.post(self.Clr.yhbrr(_utikeron), 
                                                            data=data,           
                                                            verify=False)
 
-                print(f"Parsing tokens...")
+                self.logging.debug(f"AUTH -- Parsing tokens...")
                 tokens: dict = {
                     "access_token": response.json()["access_token"],
                     "refresh_token": response.json()["refresh_token"],
