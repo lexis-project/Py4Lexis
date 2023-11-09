@@ -44,12 +44,15 @@ class kck_oi():
 
         try:
             # Check if port is in use. If yes, select next one
+            print(f"Trying to get SOCKET stream...")
             a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             
+            print(f"Identifying used ports...")
             port: int = int(self.Clr.yhbrr(cihar))
             in_use: bool = True
             while in_use:
                 location: tuple[str, int] = (self.Clr.yhbrr(erdtirec), port)
+                print(f"checking address: {location}")
                 check = a_socket.connect_ex(location)
 
                 if check == 0 or check == 10061:
@@ -57,12 +60,15 @@ class kck_oi():
                 else:
                     port += 1
 
-
+            print(f"Starting server to parse tokens...")
             with OAuthHttpServer(("", port), OAuthHttpHandler) as httpd:
+                print(f"Starting oauth webclient...")
                 web_client = WebApplicationClient(self.Clr.yhbrr(_vreen))
                 
+                print(f"Generating code...")
                 code_verifier, code_challenge = self._generate_code()
 
+                print(f"Preparing request uri...")
                 auth_uri = web_client.prepare_request_uri(self.Clr.yhbrr(_uitrauh), 
                                                           redirect_uri=f"http://{self.Clr.yhbrr(erdtirec)}:{port}", 
                                                           scope=[self.Clr.yhbrr(_ulme)], 
@@ -70,12 +76,16 @@ class kck_oi():
                                                           code_challenge=code_challenge, 
                                                           code_challenge_method=self.Clr.yhbrr(hdmathesho) )
                 
+                print(f"Opening browser...")
                 webbrowser.open_new(auth_uri)
 
+                print(f"Catching the response in client server...")
                 httpd.handle_request()
 
+                print(f"Obtaining authorization code...")
                 auth_code = httpd.authorization_code
 
+                print(f"Preparing data for token request...")
                 data: dict = {
                     "code": auth_code,
                     "client_id": self.Clr.yhbrr(_vreen),
@@ -84,11 +94,13 @@ class kck_oi():
                     "redirect_uri": f"http://{self.Clr.yhbrr(erdtirec)}:{port}",
                     "code_verifier": code_verifier
                 }
-
+                
+                print(f"Sending token request...")
                 response: requests.Request = requests.post(self.Clr.yhbrr(_utikeron), 
                                                            data=data,           
                                                            verify=False)
 
+                print(f"Parsing tokens...")
                 tokens: dict = {
                     "access_token": response.json()["access_token"],
                     "refresh_token": response.json()["refresh_token"],
@@ -105,11 +117,16 @@ class kck_oi():
 
     @staticmethod
     def _generate_code() -> tuple[str, str]:
+        print(f"GENERATE CODE: Get system random...")
         rand = random.SystemRandom()
+        print(f"GENERATE CODE: joining string...")
         code_verifier: str = "".join(rand.choices(string.ascii_letters + string.digits, k=128))
 
+        print(f"GENERATE CODE: hashing...")
         code_sha_256 = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+        print(f"GENERATE CODE: encoding...")
         b64 = base64.urlsafe_b64encode(code_sha_256)
+        print(f"GENERATE CODE: decoding...")
         code_challenge = b64.decode('utf-8').replace('=', '')
 
         return (code_verifier, code_challenge)
