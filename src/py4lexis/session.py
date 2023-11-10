@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+from getpass import getpass
 import logging
 from typing import Optional
 from requests import Response, get
@@ -17,6 +18,7 @@ disable_warnings()
 class LexisSession(object):
 
     def __init__(self, 
+                 login_method: str,
                  show_prints: Optional[bool] = True,
                  exception_on_error: Optional[bool] = False,
                  log_file: Optional[str]="./lexis_logs.log") -> None:
@@ -25,6 +27,10 @@ class LexisSession(object):
 
             Attributes
             ----------
+            login_method: str,
+                Should be one of: ['password', 'browser']. 
+                - login_method='password' -> insert login credentials into console/terminal (LEXIS credentials only).
+                - login_method='browser' -> redirects to LEXIS Login page (LEXIS, MyAccessID, B2Access credentials could be used -- only interactive!).
             show_prints: bool, optional
                 If True, messages will be printed.
             exception_on_error : bool, optional
@@ -55,6 +61,7 @@ class LexisSession(object):
         self.Clr = Clr()
 
         # Initialise logging
+        self.login_method: str = login_method
         self.show_prints: bool = show_prints
         self.log_path: str = log_file
         self.logging = logging
@@ -64,7 +71,7 @@ class LexisSession(object):
                                  format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 
         # Prepare tokens
-        self.uc = kck_oi()
+        self.uc = kck_oi(logging=self.logging)
         self.REFRESH_TOKEN: str = ""
         self.TOKEN: str = ""
         self._token_retrieved_at = 0
@@ -76,6 +83,7 @@ class LexisSession(object):
         self.API_PATH: str = self.Clr.get("API")
 
         # check API if valid
+        # TODO: FIX 404 status
         response = get(self.API_PATH)
         self.logging.debug(f"Initialise API path '{self.API_PATH}' -- OK")      
         
@@ -112,9 +120,18 @@ class LexisSession(object):
         is_error: bool = False
         try:
             print(f"Welcome to the Py4Lexis!")
-            print(f"Proceeding login via LEXIS login page...")
-            
-            tokens: dict[str] = self.uc.login()
+            if self.login_method == "browser":
+                print(f"Proceeding login via LEXIS login page...")
+                
+                tokens: dict[str] = self.uc.login()
+            elif self.login_method == "password":
+                print(f"Please provide your credentials...")
+                self.USERNAME: str = input("Username: ")
+                pwd: str = getpass()
+                tokens: dict | dict[str, str] = self.uc.token(self.USERNAME, pwd)
+            else:
+                print(f"ERROR: Login method should be one of: ['browser', 'password']")
+                raise Py4LexisAuthException
 
             self.REFRESH_TOKEN = tokens["refresh_token"]
             self.TOKEN = tokens["access_token"]

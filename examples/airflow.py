@@ -7,7 +7,7 @@ from py4lexis.cli.airflow import AirflowCLI
 """
 
 # Init session with username/password via LEXIS login page
-session = LexisSession()
+session = LexisSession(login_method="browser") # Also could be used "password" method by inserting LEXIS (only!) credentials into console/terminal
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Manage Airflow Workflows

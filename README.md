@@ -5,7 +5,7 @@ and a manager to handle workflows in the LEXIS Airflow instance (list existing w
 For both, there exist classes suitable for further processing within a script, and classes that work in interactive mode by printing 
 the content of requests and other messages right into the console/terminal. 
 
-Logging in to the LEXIS session is performed via the LEXIS login page. Thus, *B2Access* and *MyAccessID* could be used to log in. Uploading of files (datasets) to the LEXIS DDI is performed
+Logging in to the LEXIS session is performed via the LEXIS login page. Thus, *B2Access* and *MyAccessID* could be used to log in (only in interactive way!). Support of using *cron*-like commands to use Py4Lexis will be implemented in near future. Hovewer, logging in using console/terminal could be also used but only LEXIS credentials (username/password) are supported. Uploading of files (datasets) to the LEXIS DDI is performed
 by tuspy Python package, i.e., by TUS Client.
 
 ___
@@ -34,11 +34,13 @@ ___
 
 ___
 ## Initialize LEXIS session
-To log in to the LEXIS session, use:
+To log in to the LEXIS session via LEXIS login page, use:
 ```
-session = LexisSession()
+session = LexisSession(login_method="browser")
 ```
-You will be redirected to the LEXIS login page. *LEXIS username/password*, *B2Access* or *MyAccessID* could be used as credentials.
+You will be redirected to the LEXIS login page (**PORT 8083** is used!). *LEXIS username/password*, *B2Access* or *MyAccessID* could be used as credentials. This method works only in interactive sense. Support of using *cron*-like commands to use Py4Lexis will be implemented in near future.
+
+*NOTE*: login_method="password" could be also used. Logging in is performed via console/terminal but only LEXIS credentials (username/password) are supported.
 
 ___
 ## Manage LEXIS datasets
