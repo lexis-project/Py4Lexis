@@ -6,7 +6,6 @@ build==0.10.0
 certifi==2023.7.22
 charset-normalizer==3.1.0
 click==8.1.6
-colorama==0.4.6
 defusedxml==0.7.1
 deprecation==2.1.0
 ecdsa==0.18.0
@@ -19,6 +18,7 @@ mccabe==0.7.0
 multidict==6.0.4
 numpy==1.25.2
 oauthlib==3.2.2
+oidc-client==0.2.6
 packaging==23.1
 pandas==2.0.3
 pip-tools==7.3.0
@@ -26,6 +26,7 @@ prettytable==3.7.0
 pyasn1==0.5.0
 pycodestyle==2.11.0
 pyflakes==3.1.0
+PyJWT==2.8.0
 pyproject_hooks==1.0.0
 python-dateutil==2.8.2
 python-irodsclient @ git+https://github.com/lexis-project/python-irodsclient.git@7992afa83640ed02f66c8f823f4d375a2992a263
@@ -36,8 +37,10 @@ requests==2.31.0
 requests-toolbelt==1.0.0
 rsa==4.9
 six==1.16.0
+StrEnum==0.4.15
 tabulate==0.9.0
 tinydb==4.7.1
+toml==0.10.2
 tuspy==1.0.0
 tzdata==2023.3
 urllib3==2.0.7

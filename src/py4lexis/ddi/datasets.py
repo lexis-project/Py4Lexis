@@ -282,7 +282,7 @@ class Datasets(object):
             zone = self.session.DFLT_Z
 
         expand: str = "no"
-        if ".tag.gz" in file_path:
+        if ".tar.gz" in file_path:
             expand = "yes"
 
         file_path = file_path + filename
@@ -354,7 +354,7 @@ class Datasets(object):
         file_path = file_path + filename
 
         expand: str = "no"
-        if ".tag.gz" in file_path:
+        if ".tar.gz" in file_path:
             expand = "yes"
 
         metadata: dict = {
