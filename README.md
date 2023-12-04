@@ -157,11 +157,11 @@ To obtain dataset's path needed within workflow's transfers, use:
 ```
 ds.get_dataset_path(access="DATASETS_ACCESS", 
                     project="PROJECT_SHORT_NAME", 
-                    internalID="DATASET_INTERNAL_ID")
+                    internal_id="DATASET_INTERNAL_ID")
 ```
 ___
 ## Manage Airflow's workflows
-Example of how to use Py4Lexis to Airflow's workflows within LEXIS Airflow instance. Further information about classes/functions can be found in comments within each class/function.
+Example of how to use Py4Lexis to manage Airflow's workflows within LEXIS Airflow instance. Further information about classes/functions can be found in comments within each class/function.
 
 *NOTE*: It is considered that for given examples below an interactive AirflowCLI class is used. 
 
@@ -220,4 +220,58 @@ airflow.get_workflow_states(workflow_id="WORKFLOW_(DAG)_ID",
                             filter_by_workflow_state="running")
 ```
 *NOTE*: Can be also filtered by Workflow Run ID. In that case, filter_by_workflow_state will be ignored. Filters can be only used in interactive class.
+___
+## LEXIS iRODS
+Example of how to use Py4Lexis to manage collections and data objects within LEXIS iRODS. Further information about classes/functions can be found in comments within each class/function.
+
+### Initialise LEXIS iRODS session
+To initialise LEXIS iRODS session, use:
+```
+irods = iRODS(session)
+```
+
+### put data object to iRODS
+To put new data object to the existing dataset's iRODS collection, use:
+```
+data_object = irods.put_object_to_dataset_collection(local_filepath="LOCAL_FILE_PATH",
+                                                    irods_filepath="RELATIVE_FILE_PATH_IN_IRODS",
+                                                    access="LEXIS_PROJECT_ACCESS",
+                                                    project="LEXIS_PROJECT_SHORTNAME",
+                                                    internal_id="DATASET_INTERNAL_ID")
+```
+
+### get data object from iRODS
+To get existing data object from existing dataset's iRODS collection use:
+```
+data_object = irods.put_object_to_dataset_collection(local_filepath="LOCAL_PATH_TO_FILE",
+                                                     irods_filepath="RELATIVE_FILE_PATH_IN_IRODS",
+                                                     access="LEXIS_PROJECT_ACCESS",
+                                                     project="LEXIS_PROJECT_SHORTNAME",
+                                                     internal_id="DATASET_INTERNAL_ID")
+```
+
+### create new collection within an existing dataset
+To create new collection within existing dataset's iRODS collection, use:
+```
+collection = irods.create_collection_within_dataset(collection_name="NEW_COLLECTION_NAME",
+                                                    access="LEXIS_PROJECT_ACCESS",
+                                                    project="LEXIS_PROJECT_SHORTNAME",
+                                                    internal_id="DATASET_INTERNAL_ID")
+```
+
+### get LEXIS project as a collection
+To get existing LEXIS project as iRODS collection, use:
+```
+collection = irods.get_project_collection(access="LEXIS_PROJECT_ACCESS",
+                                          project="LEXIS_PROJECT_SHORTNAME")
+```
+
+### get a dataset as a collection
+To get existing dataset as iRODS collection, use:
+```
+collection = irods.get_dataset_collection(access="LEXIS_PROJECT_ACCESS",
+                                          project="LEXIS_PROJECT_SHORTNAME",
+                                          internal_id="DATASET_INTERNAL_ID")
+
+```
 ___

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Generator, Optional
+from typing import Generator
 from py4lexis.custom_types.directory_tree import TreeDirectoryObject, TreeFileObject
 
 
@@ -55,7 +55,7 @@ class DirectoryTree(object):
             self.depth: int = 0
 
     @classmethod
-    def make_tree(cls, tree_content: TreeDirectoryObject | TreeFileObject, parent: Optional[object | None]=None, is_last: Optional[bool]=False) -> Generator[DirectoryTree, None, None]:
+    def make_tree(cls, tree_content: TreeDirectoryObject | TreeFileObject, parent: object | None=None, is_last: bool=False) -> Generator[DirectoryTree, None, None]:
         """
             Creates the directory tree from the content of HTTP response.
 

@@ -11,13 +11,14 @@ from irods.session import iRODSSession
 from py4lexis.backend import OAuthHttpHandler, OAuthHttpServer
 from py4lexis.exceptions import Py4LexisAuthException, Py4LexisPostException
 from py4lexis.helper import Clr, _RR, igev, _vreen, ngano, _urby, _gomiz, _ulme, _itbbra, _yuo, cihar, erdtirec, _uitrauh, _utikeron, _eastt, hdmathesho
-
+import logging
+from jwt import decode
 
 class kck_oi():
 
-    def __init__(self, logging):
-        self.Clr = Clr() 
-        self.logging = logging
+    def __init__(self, logger):
+        self.Clr: Clr = Clr() 
+        self.logging: logging = logger
         self._oid = KeycloakOpenID(self.Clr.yhbrr(_RR) + "/auth/", self.Clr.yhbrr(igev), self.Clr.yhbrr(_vreen), client_secret_key=self.Clr.yhbrr(ngano))
 
 
@@ -42,19 +43,19 @@ class kck_oi():
             raise Py4LexisPostException
     
     
-    def get_irods_session(self, username, token):
+    def get_irods_session(self, username, token, zone):
         return iRODSSession(
             host=self.Clr.yhbrr(_urby),
             port=int(self.Clr.yhbrr(_gomiz)),
             authentication_scheme=self.Clr.yhbrr(_ulme),
             openid_provider=self.Clr.yhbrr(_itbbra),
-            zone=self.Clr.yhbrr(_yuo),
+            zone=zone,
             access_token=token,
             user=username,
             block_on_authURL=False)
     
 
-    def login(self) -> dict[str]:
+    def login(self) -> dict[str, str | int]:
 
         try:
             # Check if port is in use. If yes, select next one
@@ -127,13 +128,23 @@ class kck_oi():
                 self.logging.debug(f"AUTH -- Sending token request -- OK")
 
                 self.logging.debug(f"AUTH -- Parsing tokens -- PROCESSING")
-                tokens: dict = {
+                tokens: dict[str, str | int] = {
                     "access_token": response.json()["access_token"],
                     "refresh_token": response.json()["refresh_token"],
                     "expires_in": response.json()["expires_in"],
                     "refresh_expires_in": response.json()["refresh_expires_in"]
                 }            
                 self.logging.debug(f"AUTH -- Parsing tokens -- OK")
+
+                self.logging.debug(f"AUTH -- Obtaining username -- PROCESSING")
+                username = decode(tokens["access_token"].encode("utf-8"), 
+                                  key=None, 
+                                  options={
+                                      "verify_signature": False, 
+                                      "verify_aud" : False}, 
+                                  algorithms=["HS256", "RS256"])
+                tokens["username"] = username["preferred_username"]
+                self.logging.debug(f"AUTH -- Obtaining username -- OK")
 
                 print("Logged in successfully...")
                 self.logging.debug(f"AUTH -- LOGIN -- OK")

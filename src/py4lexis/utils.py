@@ -1,20 +1,24 @@
 
 from __future__ import annotations
-from typing import Generator, Optional
+from typing import Generator
+from uuid import UUID
 from py4lexis.custom_types.directory_tree import TreeDirectoryObject
 from py4lexis.directory_tree import DirectoryTree
+from py4lexis.exceptions import Py4LexisException
 from py4lexis.session import LexisSession
 from pandas import DataFrame
+from typing import Literal
+import hashlib
 
 
 def printProgressBar(iteration: int, 
                      total: int, 
-                     prefix: Optional[str]="", 
-                     suffix: Optional[str]="", 
-                     decimals: Optional[int]=1, 
-                     length: Optional[int]=100, 
-                     fill: Optional[str]="█", 
-                     printEnd: Optional[str]="\r") -> None:
+                     prefix: str="", 
+                     suffix: str="", 
+                     decimals: int=1, 
+                     length: int=100, 
+                     fill: str="█", 
+                     printEnd: str="\r") -> None:
     """
         Call in a loop to create terminal progress bar. Source: https://stackoverflow.com/questions/3173320/text-progress-bar-in-terminal-with-block-characters
 
@@ -54,7 +58,7 @@ def printProgressBar(iteration: int,
 
 def convert_get_datasets_status_to_pandas(session: LexisSession, 
                                           content: list[dict], 
-                                          supress_print: Optional[bool]=False) -> DataFrame | None:
+                                          supress_print: bool=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET datasets status from JSON format to pandas DataFrame.
         
@@ -144,7 +148,7 @@ def convert_get_datasets_status_to_pandas(session: LexisSession,
 
 def convert_get_all_datasets_to_pandas(session: LexisSession, 
                                        content: list[dict],
-                                       supress_print: Optional[bool]=False) -> DataFrame | None:
+                                       supress_print: bool=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET all datasets from JSON format to pandas DataFrame.
         
@@ -211,10 +215,10 @@ def convert_get_all_datasets_to_pandas(session: LexisSession,
             else:
                 zone: str = str("UKNOWN Zone")
 
-            if "internalID" in content[i]["location"]:
-                internalID: str = content[i]["location"]["internalID"]
+            if "internal_id" in content[i]["location"]:
+                internal_id: str = content[i]["location"]["internalID"]
             else:
-                internalID: str = str("UKNOWN InternalID")
+                internal_id: str = str("UKNOWN InternalID")
 
             if "CreationDate" in content[i]["metadata"]:
                 creation_date: str = content[i]["metadata"]["CreationDate"]
@@ -290,7 +294,7 @@ def convert_get_all_datasets_to_pandas(session: LexisSession,
                 encryption: str = str("UKNOWN Encryption")
 
 
-            datasets_table.loc[i] = [title, access, project, zone, internalID, creation_date, owner,
+            datasets_table.loc[i] = [title, access, project, zone, internal_id, creation_date, owner,
                                      creator, contributor, publisher, publication_year, resource_type,
                                      compression, encryption]
     
@@ -309,7 +313,7 @@ def convert_get_all_datasets_to_pandas(session: LexisSession,
 
 def convert_dir_tree_to_pandas(session: LexisSession, 
                                content: list[dict],
-                               supress_print: Optional[bool]=False) -> DataFrame | None:
+                               supress_print: bool=False) -> DataFrame | None:
     """
         Convert HTTP response content of GET list of files in dataset from JSON format to pandas DataFrame.
         
@@ -363,8 +367,8 @@ def convert_dir_tree_to_pandas(session: LexisSession,
     
 
 def convert_list_of_dicts_to_pandas(session: LexisSession, 
-                                      content: list[dict] | dict,                                      
-                                      supress_print: Optional[bool]=False) -> DataFrame | None:
+                                    content: list[dict] | dict,                                      
+                                    supress_print: bool=False) -> DataFrame | None:
     """
         Convert from list of objects to pandas DataFrame.
         
@@ -417,3 +421,86 @@ def convert_list_of_dicts_to_pandas(session: LexisSession,
         return None
     else:
         return datasets_table    
+    
+
+def assemble_dataset_path(access: Literal["user", "project", "public"], 
+                          project: str, 
+                          internal_id: str="", 
+                          username: str="") -> str:
+    """
+        Returns a path for an existing dataset as the combination of access, project, internalID and username.
+
+        Parameters:
+        -----------
+        session: LexisSession
+            Current Lexis session.
+        access : Literal["user", "project", "public"]
+            Access mode of the project (user, project, public)
+        project : str
+            Project's short name.
+        internal_id : str, optional
+            Dataset's internalID as UUID.
+        username : str, optional
+            The iRODS username. Needed when user access is defined
+
+        Returns:
+        --------
+        str | None
+            Staging dataset path.
+
+    """
+
+    path: str = ""
+    if access == "user":
+        path = f"user/{_targetProjectHash(project)}/{username}"
+    elif access == "project":
+        path = f"project/{_targetProjectHash(project)}"
+    elif access == "public":
+        path = f"public/{_targetProjectHash(project)}"
+    else:
+        return "No_Dataset_Specified"
+    
+    if internal_id != "":
+        return f"{path}/{internal_id}"
+    else:
+        return path
+
+
+def _targetProjectHash(project: str) -> str:
+    """
+        Hashes a project which allows the mapping of projects to paths in iRODS.
+
+        Parameters:
+        -----------
+        project : str
+            Project's short name.
+
+        Returns:
+        --------
+        str
+            The project hash.
+
+    """
+    
+    tmpHash: str = hashlib.md5(project.encode("utf8")).hexdigest()
+    return "proj" + tmpHash
+
+
+def check_if_uuid(session: LexisSession, uuid: str, param_name: Literal["internalID"] | None="internalID") -> bool:
+    try:
+        UUID(uuid, version=4)
+    except ValueError:
+        if param_name == "internalID":
+            message: str = "Internal dataset ID is not valid UUID!"
+        else:
+            message: str = "Passed UUID is not valid UUID!"
+        session.logging.error(message)
+
+        if not session.supress_prints:
+            print(f"{message}")
+
+        if session.exception_on_error:
+            raise Py4LexisException(message)
+        
+        return False
+    return True

@@ -2,7 +2,7 @@
 """
     TUS Client derived from tuspy tus client.
 """
-from typing import Dict, Optional
+from typing import Dict
 from py4lexis.ddi.uploader import Uploader, AsyncUploader
 
 
@@ -25,7 +25,7 @@ class TusClient:
         - headers (Optiional[dict])
     """
 
-    def __init__(self, url: str, headers: Optional[Dict[str, str]] = None):
+    def __init__(self, url: str, headers: Dict[str, str] | None = None):
         self.url = url
         self.headers = headers or {}
 

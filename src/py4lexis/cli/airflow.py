@@ -1,9 +1,9 @@
-from typing import Optional
 from pandas import DataFrame
 from py4lexis.session import LexisSession
 from py4lexis.workflows.airflow import Airflow
 from tabulate import tabulate
 from json import dumps
+
 
 class AirflowCLI(object):
     """
@@ -30,19 +30,20 @@ class AirflowCLI(object):
         get_workflow_params(workflow_id: str) -> tuple[dict, int] | tuple[None, None]
             Gets and prints params of existing workflow (DAG) selected by its workflow ID (dag_id).
 
-        execute_workflow(workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> None
+        execute_workflow(workflow_id: str, workflow_parameters: dict, workflow_run_id: str | None=None) -> None
             Prints status of workflow (DAG) execution selected by its workflow ID (dag_id).
         
-        get_workflow_states(workflow_id: str, filter_by_workflow_run_id: Optional[str]="", filter_by_workflow_state: Optional[str]="") -> None
+        get_workflow_states(workflow_id: str, filter_by_workflow_run_id: str="", filter_by_workflow_state: str="") -> None
             Prints run states of existing workflow (DAG) selected by its workflow ID (dag_id).
         
     """
     
     def __init__(self, session: LexisSession, 
-                 print_content: Optional[bool]=False) -> None:
+                 print_content: bool=False) -> None:
         self.session = session
         self.print_content = print_content
         self.airflow = Airflow(self.session, self.print_content, suppress_print=False)
+
 
     @staticmethod
     def _print_json(content: dict):
@@ -81,7 +82,8 @@ class AirflowCLI(object):
                 print(f"Wrong or missing key '{kerr}' in response content as DataFrame!!!")
 
 
-    def get_workflow_info(self, workflow_id: str) -> None:
+    def get_workflow_info(self, 
+                          workflow_id: str) -> None:
         """
             Prints info of existing workflow (DAG) selected by its workflow ID (dag_id).
 
@@ -101,7 +103,8 @@ class AirflowCLI(object):
             self._print_json(content)
 
 
-    def get_workflow_details(self, workflow_id: str) -> None:
+    def get_workflow_details(self, 
+                             workflow_id: str) -> None:
         """
             Prints details of existing workflow (DAG) selected by its workflow ID (dag_id).
 
@@ -121,7 +124,8 @@ class AirflowCLI(object):
             self._print_json(content)
 
 
-    def get_workflow_params(self, workflow_id: str) -> None:
+    def get_workflow_params(self, 
+                            workflow_id: str) -> None:
         """
             Gets and prints params of existing workflow (DAG) selected by its workflow ID (dag_id).
 
@@ -144,7 +148,10 @@ class AirflowCLI(object):
         return wf_default_parameters
 
 
-    def execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> tuple[dict, int] | tuple[None, None]:
+    def execute_workflow(self, 
+                         workflow_id: str, 
+                         workflow_parameters: dict, 
+                         workflow_run_id: str | None=None) -> tuple[dict, int] | tuple[None, None]:
         """
             Execute manually an existing workflow (DAG) which is selected by its workflow ID (dag_id) and prints the result.
 
@@ -168,7 +175,10 @@ class AirflowCLI(object):
             self._print_json(content)
         
 
-    def get_workflow_states(self, workflow_id: str, filter_by_workflow_run_id: Optional[str]="", filter_by_workflow_state: Optional[str]="") -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]:
+    def get_workflow_states(self, 
+                            workflow_id: str, 
+                            filter_by_workflow_run_id: str="", 
+                            filter_by_workflow_state: str="") -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]:
         """
             Prints run states of existing workflow (DAG) selected by its workflow ID (dag_id).
 

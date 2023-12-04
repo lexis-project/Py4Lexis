@@ -1,4 +1,3 @@
-from typing import Optional
 from pandas import DataFrame
 from requests import Response, post, get
 from dateutil import parser
@@ -24,7 +23,7 @@ class Airflow(object):
 
         Methods
         -------
-        get_workflows_list(content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame | None, int] | tuple[None, None]
+        get_workflows_list(content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame | None, int] | tuple[None, None]
             Gets list of existing workflows (DAGs).
 
         get_workflow_info(workflow_id: str) -> tuple[dict | None, int] | tuple[None, None]
@@ -36,23 +35,23 @@ class Airflow(object):
         get_workflow_params(self, workflow_id: str) -> tuple[dict, int] | tuple[None, None]
             Gets params of existing workflow (DAG) selected by its workflow ID (dag_id).
 
-        execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> tuple[dict, int] | tuple[None, None]
+        execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: str | None=None) -> tuple[dict, int] | tuple[None, None]
             Gets params of existing workflow (DAG) selected by its workflow ID (dag_id).
         
-        get_workflow_states(self, workflow_id: str, content_as_pandas: Optional[bool]=False) -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]
+        get_workflow_states(self, workflow_id: str, content_as_pandas: bool=False) -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]
             Gets run states of existing workflow (DAG) selected by its workflow ID (dag_id).
     """
     
     def __init__(self, session: LexisSession, 
-                 print_content: Optional[bool]=False,
-                 suppress_print: Optional[bool]=True) -> None:
+                 print_content: bool=False,
+                 suppress_print: bool=True) -> None:
         self.session = session
         self.print_content = print_content
         self.suppress_print = suppress_print
 
 
     def get_workflows_list(self,
-                           content_as_pandas: Optional[bool]=False) -> tuple[list[dict] | DataFrame | None, int] | tuple[None, None]:
+                           content_as_pandas: bool=False) -> tuple[list[dict] | DataFrame | None, int] | tuple[None, None]:
         """
             Get list of existing workflows (DAGs).
 
@@ -272,7 +271,7 @@ class Airflow(object):
             return wf_default_parameters, response.status_code
 
 
-    def execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: Optional[str | None]=None) -> tuple[dict, int] | tuple[None, None]:
+    def execute_workflow(self, workflow_id: str, workflow_parameters: dict, workflow_run_id: str | None=None) -> tuple[dict, int] | tuple[None, None]:
         """
             Execute manually an existing workflow (DAG) which is selected by its workflow ID (dag_id).
 
@@ -343,7 +342,7 @@ class Airflow(object):
             return content_out, response.status_code
         
 
-    def get_workflow_states(self, workflow_id: str, content_as_pandas: Optional[bool]=False) -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]:
+    def get_workflow_states(self, workflow_id: str, content_as_pandas: bool=False) -> tuple[list[dict], int] | tuple[DataFrame, int] | tuple[None, None]:
         """
             Get run states of existing workflow (DAG) selected by its workflow ID (dag_id).
 

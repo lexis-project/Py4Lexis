@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 import time
 import asyncio
 from urllib.parse import urljoin
@@ -29,7 +28,7 @@ class Uploader(BaseUploader):
         super().__init__(*args, **kwargs)
         self.log_func = log_func
 
-    def upload(self, stop_at: Optional[int]=None):
+    def upload(self, stop_at: int | None=None):
         """
         Perform file upload.
 
@@ -37,7 +36,7 @@ class Uploader(BaseUploader):
         the value of the attribute 'chunk_size'.
 
         :Args:
-            - stop_at (Optional[int]):
+            - stop_at (int | None):
                 Determines at what offset value the upload should stop. If not specified this
                 defaults to the file size.
         """
@@ -115,7 +114,7 @@ class AsyncUploader(BaseUploader):
         super().__init__(*args, **kwargs)
         self.log_func = log_func
 
-    async def upload(self, stop_at: Optional[int] = None):
+    async def upload(self, stop_at: int | None = None):
         """
         Perform file upload.
 
@@ -123,7 +122,7 @@ class AsyncUploader(BaseUploader):
         the value of the attribute 'chunk_size'.
 
         :Args:
-            - stop_at (Optional[int]):
+            - stop_at (int | None):
                 Determines at what offset value the upload should stop. If not specified this
                 defaults to the file size.
         """

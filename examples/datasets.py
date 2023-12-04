@@ -28,7 +28,7 @@ ds.tus_uploader_new(access="DATASET_ACCESS",
                     title=["TITLE_HERE"])
 
 # Upload new files to existing dataset or rewrite existing ones
-ds.tus_uploader_rewrite(dataset_id="DATASET_INTERNAL_ID",
+ds.tus_uploader_rewrite(internal_id="DATASET_INTERNAL_ID",
                         dataset_title="DATASET_TITLE", # Dataset title have to be same as it is identified by DATASET_UUID
                         project="PROJECT_SHORT_NAME", 
                         access="ACCESS_HERE",
@@ -46,26 +46,26 @@ ds.get_all_datasets(filter_access="DATASET_ACCESS",
 
 
 # Delete dataset
-ds.delete_dataset_by_id(dataset_id="DATASETS_INTERNAL_ID", 
+ds.delete_dataset_by_id(internal_id="DATASETS_INTERNAL_ID", 
                         access="DATASET_ACCESS", 
                         project="PROJECT_SHORT_NAME")
 
 
 # Download Dataset
-ds.download_dataset(dataset_id="DATASET_INTERNAL_ID", 
+ds.download_dataset(internal_id="DATASET_INTERNAL_ID", 
                     access="DATASET_ACCESS", 
                     project="PROJECT_SHORT_NAME")
 
 
 # List all files in dataset as ASCII directory tree
-ds.get_list_of_files_in_dataset(dataset_id="DATASET_INTERNAL_ID", 
+ds.get_list_of_files_in_dataset(internal_id="DATASET_INTERNAL_ID", 
                                 access="DATASET_ACCESS", 
                                 project="PROJECT_SHORT_NAME", 
                                 print_dir_tree=True) # print_dir_tree parameter is available only in interactive mode
 
 
 # List all files in dataset as DataFrame table
-ds.get_list_of_files_in_dataset(dataset_id="DATASET_INTERNAL_ID", 
+ds.get_list_of_files_in_dataset(internal_id="DATASET_INTERNAL_ID", 
                                 access="DATASET_ACCESS", 
                                 project="PROJECT_SHORT_NAME", 
                                 print_dir_tree=False) # print_dir_tree parameter is available only in interactive mode
@@ -74,4 +74,4 @@ ds.get_list_of_files_in_dataset(dataset_id="DATASET_INTERNAL_ID",
 # Get a dataset path
 ds.get_dataset_path(access="DATASET_ACCESS", 
                     project="PROJECT_SHORT_NAME", 
-                    internalID="DATASETS_INTERNAL_ID")
+                    internal_id="DATASETS_INTERNAL_ID")
