@@ -1,5 +1,10 @@
 # Py4Lexis
 
+## PROJECT HAS BEEN MOVED
+**New location for further development and issue tracking is at: https://opencode.it4i.eu/lexis-platform/clients/py4lexis.**
+
+## Description
+
 Py4Lexis is a Python package which provides a manager to handle datasets within the LEXIS DDI (upload, download, list existing datasets) 
 and a manager to handle workflows in the LEXIS Airflow instance (list existing workflows, execute workflows, check state). 
 For both, there exist classes suitable for further processing within a script, and classes that work in interactive mode by printing 
